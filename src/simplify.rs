@@ -87,7 +87,7 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
         let color = if match_to_colorset {
             brs::ColorMode::Set(match_hsv_to_colorset(&colorset, &avg_color) as u32)
         } else {
-            let rgba = hsv2rgb(avg_color);
+            let rgba = gamma_correct(hsv2rgb(avg_color));
             brs::ColorMode::Custom(brs::Color::from_rgba(rgba[0], rgba[1], rgba[2], rgba[3]))
         };
 
