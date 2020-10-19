@@ -51,6 +51,22 @@ pub fn rgb2hsv(rgb: Vector4::<u8>) -> Vector4::<f32> {
     Vector4::<f32>::new(hue, saturation, max, a)
 }
 
+fn color_conversion(color: u8) -> u8 {
+    if (color as f64/255.0) > 0.04045 { 
+        ((((color as f64/255.0) / 1.055) + 0.052_132_7).powf(2.4) * 255.0) as u8
+    } else {
+        ((color as f64/255.0) / 12.92 * 255.0) as u8
+    }
+}
+
+pub fn gamma_correct(rgb: Vector4::<u8>) -> Vector4::<u8> {
+    Vector4::<u8>::new(
+        color_conversion(rgb[0]),
+        color_conversion(rgb[1]),
+        color_conversion(rgb[2]), 
+        rgb[3])
+}
+
 pub fn hsv2rgb(hsv: Vector4::<f32>) -> Vector4::<u8> {
     let hue = hsv[0] * 180f32 / std::f32::consts::PI;
     let saturation = hsv[1];

@@ -3,7 +3,7 @@ use crate::color::*;
 
 use cgmath::{ Vector3, Vector4 };
 
-pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData, bricktype: String) {
+pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData, bricktype: String, match_to_colorset: bool) {
     let colorset = convert_colorset_to_hsv(&write_data.colors);
 
     loop {
@@ -83,7 +83,13 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
             }
         }
 
-        let color = match_hsv_to_colorset(&colorset, &hsv_average(&colors));
+        let avg_color = hsv_average(&colors);
+        let color = if match_to_colorset {
+            brs::ColorMode::Set(match_hsv_to_colorset(&colorset, &avg_color) as u32)
+        } else {
+            let rgba = hsv2rgb(avg_color);
+            brs::ColorMode::Custom(brs::Color::from_rgba(rgba[0], rgba[1], rgba[2], rgba[3]))
+        };
 
         let width = xp - x;
         let height = yp - y;
@@ -106,21 +112,22 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
                 collision: true,
                 visibility: true,
                 material_index: 2,
-                color: brs::ColorMode::Set(color as u32),
+                color,
                 owner_index: None
             }
         );
     }
 }
 
-pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData, bricktype: String) {
+pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData, bricktype: String, match_to_colorset: bool) {
     let d: isize = 1 << octree.size;
     let len = d + 1;
 
     let colorset = convert_colorset_to_hsv(&write_data.colors);
 
     loop {
-        let color;
+        let matched_color;
+        let unmatched_color;
         let x; let y; let z;
         {
             let (location, voxel) = octree.get_any_mut_or_create();
@@ -131,7 +138,14 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
 
             match voxel {
                 TreeBody::Leaf(leaf_color) => {
-                    color = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
+                    matched_color = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
+                    let final_color = gamma_correct(*leaf_color);
+                    unmatched_color = brs::ColorMode::Custom(brs::Color::from_rgba(
+                        final_color[0],
+                        final_color[1],
+                        final_color[2],
+                        final_color[3],
+                    ));
                 },
                 _ => { break }
             }
@@ -148,7 +162,7 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
             match voxel {
                 TreeBody::Leaf(leaf_color) => {
                     let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
-                    if color_temp != color { break }
+                    if color_temp != matched_color { break }
                     zp += 1;
                 },
                 _ => { break }
@@ -162,7 +176,7 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
                 match voxel {
                     TreeBody::Leaf(leaf_color) => {
                         let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
-                        if color_temp != color { pass = false; break }
+                        if color_temp != matched_color { pass = false; break }
                     },
                     _ => { pass = false; break }
                 }
@@ -179,7 +193,7 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
                     match voxel {
                         TreeBody::Leaf(leaf_color) => {
                             let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
-                            if color_temp != color { pass = false; break }
+                            if color_temp != matched_color { pass = false; break }
                         },
                         _ => { pass = false; break }
                     }
@@ -208,6 +222,12 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
 
         let scales: (isize, isize, isize) = if bricktype == "micro" { (1, 1, 1) } else { (5, 5, 2) };
 
+        let color = if match_to_colorset {
+            brs::ColorMode::Set(matched_color as u32)
+        } else {
+            unmatched_color
+        };
+
         write_data.bricks.push(
             brs::Brick {
                 asset_name_index: if bricktype == "micro" { 0 } else { 1 },
@@ -223,7 +243,7 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
                 collision: true,
                 visibility: true,
                 material_index: 2,
-                color: brs::ColorMode::Set(color as u32),
+                color,
                 owner_index: None
             }
         );

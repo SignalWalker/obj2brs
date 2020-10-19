@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "textured-voxelizer", about = "Voxelizes OBJ files to create textured voxel models")]
+#[structopt(name = "obj2brs", about = "Voxelizes OBJ files to create textured voxel models")]
 struct Opt {
     #[structopt(parse(from_os_str))]
     file: PathBuf,
@@ -33,6 +33,8 @@ struct Opt {
     scale: f32,
     #[structopt(short, long, possible_values = &["micro", "normal"], default_value = "normal")]
     bricktype: String,
+    #[structopt(short, long, parse(from_occurrences))]
+    matchcolor: u8,
 }
 
 fn main() {
@@ -43,7 +45,7 @@ fn main() {
     match opt.output.extension() {
         Some(extension) => {
             match extension.to_str() {
-                Some("brs") => write_brs_data(&mut octree, opt.output, opt.simplify, opt.bricktype),
+                Some("brs") => write_brs_data(&mut octree, opt.output, opt.simplify, opt.bricktype, opt.matchcolor > 0),
                 // Implement new file types
                 Some(extension) => panic!("Output file type {} is not supported", extension),
                 None => panic!("Invalid output file type")
@@ -108,7 +110,7 @@ fn generate_octree(opt: &Opt) -> VoxelTree<Vector4<u8>> {
     voxelize(&mut models, &material_images, opt.scale, opt.bricktype.clone())
 }
 
-fn write_brs_data(mut octree: &mut VoxelTree::<Vector4::<u8>>, output: PathBuf, simplify_algo: String, bricktype: String) {
+fn write_brs_data(mut octree: &mut VoxelTree::<Vector4::<u8>>, output: PathBuf, simplify_algo: String, bricktype: String, match_to_colorset: bool) {
     let reference_save = match File::open("reference.brs") {
         Err(e) => panic!("Error encountered when loading microbrick.brs file: {:}", e.to_string()),
         Ok(data) => data,
@@ -141,9 +143,9 @@ fn write_brs_data(mut octree: &mut VoxelTree::<Vector4::<u8>>, output: PathBuf, 
 
     println!("Simplifying {:?}...", simplify_algo);
     if simplify_algo == "lossless" {
-        simplify_lossless(&mut octree, &mut write_data, bricktype);
+        simplify_lossless(&mut octree, &mut write_data, bricktype, match_to_colorset);
     } else {
-        simplify(&mut octree, &mut write_data, bricktype);
+        simplify(&mut octree, &mut write_data, bricktype, match_to_colorset);
     }
 
     // Write file
