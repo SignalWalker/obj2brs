@@ -136,8 +136,7 @@ impl<T> VoxelTree<T> {
     fn get_any_recursive<'a>(branches: &'a mut Branches<T>, mask: isize, voxel: Vector3::<isize>) -> Option<Vector3::<isize>> {
         let m = mask >> 1;
 
-        for i in 0..8 {
-            let branch = &mut branches[i];
+        for (i, branch) in branches.iter_mut().enumerate() {
             let mut voxel_temp = voxel;
             let step = 2*m + ((m == 0) as isize);
             voxel_temp.x += step * ((i & 4) > 0) as isize;

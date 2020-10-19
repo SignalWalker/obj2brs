@@ -97,9 +97,7 @@ fn recursive_voxelize<'a>(branches: &'a mut Branches<Vector4::<u8>>, mask: isize
     let m = mask >> 1;
     let half_box = (2*m + ((m == 0) as isize)) as f32 / 2.;
 
-    for i in 0..8 {
-        let branch = &mut branches[i];
-
+    for (i, branch) in branches.iter_mut().enumerate() {
         if let TreeBody::Empty = branch {
             let center = Vector3::<f32>::new(
                 half_box * (2*((i & 4) > 0) as isize - 1) as f32,
