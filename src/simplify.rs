@@ -17,8 +17,8 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
             z = location[2];
 
             match voxel {
-                TreeBody::Leaf(c) => {
-                    colors.push(*c);
+                TreeBody::Leaf(leaf_color) => {
+                    colors.push(*leaf_color);
                 },
                 _ => { break }
             }
@@ -34,8 +34,8 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
         while zp - z < 200 {
             let voxel = octree.get_mut_or_create(Vector3::new(x, y, zp));
             match voxel {
-                TreeBody::Leaf(c) => {
-                    colors.push(*c);
+                TreeBody::Leaf(leaf_color) => {
+                    colors.push(*leaf_color);
                     zp += 1
                 },
                 _ => { break }
@@ -47,7 +47,7 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
             for sz in z..zp {
                 let voxel = octree.get_mut_or_create(Vector3::new(x, yp, sz));
                 match voxel {
-                    TreeBody::Leaf(c) => colors.push(*c),
+                    TreeBody::Leaf(leaf_color) => colors.push(*leaf_color),
                     _ => { pass = false; break }
                 }
             }
@@ -61,7 +61,7 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
                 for sz in z..zp {
                     let voxel = octree.get_mut_or_create(Vector3::new(xp, sy, sz));
                     match voxel {
-                        TreeBody::Leaf(c) => colors.push(*c),
+                        TreeBody::Leaf(leaf_color) => colors.push(*leaf_color),
                         _ => { pass = false; break }
                     }
                 }
@@ -85,19 +85,19 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
 
         let color = match_hsv_to_colorset(&colorset, &hsv_average(&colors));
 
-        let w = xp - x;
-        let h = yp - y;
-        let d = zp - z;
+        let width = xp - x;
+        let height = yp - y;
+        let depth = zp - z;
 
         write_data.bricks.push(
             brs::Brick {
                 asset_name_index: 0,
                 // Coordinates are rotated
-                size: (5*w as u32, 5*d as u32, 2*h as u32),
+                size: (5*width as u32, 5*depth as u32, 2*height as u32),
                 position: (
-                    (5*w + 10*x) as i32,
-                    (5*d + 10*z) as i32,
-                    (2*h + 4*y) as i32
+                    (5*width + 10*x) as i32,
+                    (5*depth + 10*z) as i32,
+                    (2*height + 4*y) as i32
                 ),
                 direction: brs::Direction::ZPositive,
                 rotation: brs::Rotation::Deg0,
@@ -128,8 +128,8 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
             z = location[2];
 
             match voxel {
-                TreeBody::Leaf(c) => {
-                    color = match_hsv_to_colorset(&colorset, &rgb2hsv(*c));
+                TreeBody::Leaf(leaf_color) => {
+                    color = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
                 },
                 _ => { break }
             }
@@ -144,8 +144,8 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
         while zp < len && (zp - z) < 200 {
             let voxel = octree.get_mut_or_create(Vector3::new(x, y, zp));
             match voxel {
-                TreeBody::Leaf(c) => {
-                    let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*c));
+                TreeBody::Leaf(leaf_color) => {
+                    let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
                     if color_temp != color { break }
                     zp += 1;
                 },
@@ -158,8 +158,8 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
             for sz in z..zp {
                 let voxel = octree.get_mut_or_create(Vector3::new(x, yp, sz));
                 match voxel {
-                    TreeBody::Leaf(c) => {
-                        let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*c));
+                    TreeBody::Leaf(leaf_color) => {
+                        let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
                         if color_temp != color { pass = false; break }
                     },
                     _ => { pass = false; break }
@@ -175,8 +175,8 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
                 for sz in z..zp {
                     let voxel = octree.get_mut_or_create(Vector3::new(xp, sy, sz));
                     match voxel {
-                        TreeBody::Leaf(c) => {
-                            let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*c));
+                        TreeBody::Leaf(leaf_color) => {
+                            let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
                             if color_temp != color { pass = false; break }
                         },
                         _ => { pass = false; break }
@@ -200,19 +200,19 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
             }
         }
 
-        let w = xp - x;
-        let h = yp - y;
-        let d = zp - z;
+        let width = xp - x;
+        let height = yp - y;
+        let depth = zp - z;
 
         write_data.bricks.push(
             brs::Brick {
                 asset_name_index: 0,
                 // Coordinates are rotated
-                size: (5*w as u32, 5*d as u32, 2*h as u32),
+                size: (5*width as u32, 5*depth as u32, 2*height as u32),
                 position: (
-                    (5*w + 10*x) as i32,
-                    (5*d + 10*z) as i32,
-                    (2*h + 4*y) as i32
+                    (5*width + 10*x) as i32,
+                    (5*depth + 10*z) as i32,
+                    (2*height + 4*y) as i32
                 ),
                 direction: brs::Direction::ZPositive,
                 rotation: brs::Rotation::Deg0,

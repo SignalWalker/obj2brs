@@ -44,8 +44,7 @@ impl<T> VoxelTree<T> {
             return false
         }
         
-        true
-        && (voxel.x + 1) <= high
+        (voxel.x + 1) <= high
         && (voxel.y + 1) <= high
         && (voxel.z + 1) <= high
     }
@@ -97,7 +96,7 @@ impl<T> VoxelTree<T> {
         ];
         
         loop {
-            m = m >> 1;
+            m >>= 1;
             if m == 0 { return branch }
 
             let branch_id = ((((voxel.x & m) != 0) as usize) << 2)
@@ -139,7 +138,7 @@ impl<T> VoxelTree<T> {
 
         for i in 0..8 {
             let branch = &mut branches[i];
-            let mut voxel_temp = voxel.clone();
+            let mut voxel_temp = voxel;
             let step = 2*m + ((m == 0) as isize);
             voxel_temp.x += step * ((i & 4) > 0) as isize;
             voxel_temp.y += step * ((i & 2) > 0) as isize;

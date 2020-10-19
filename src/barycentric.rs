@@ -17,7 +17,7 @@ pub fn interpolate_uv(v: &[Vector3<f32>; 3], uv: &Option<[Vector2<f32>; 3]>, f: 
             let a1 = va1.magnitude()/a * va.dot(va1).signum();
             let a2 = va2.magnitude()/a * va.dot(va2).signum();
 
-            return uvs[0] * a0 + uvs[1] * a1 + uvs[2] * a2;
+            uvs[0] * a0 + uvs[1] * a1 + uvs[2] * a2
         },
         None => Vector2::new(0., 0.)
     }

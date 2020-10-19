@@ -16,7 +16,7 @@ fn axis_test_x01(half_box: f32, v0: Vector3<f32>, v2: Vector3<f32>, a: f32, b: f
     let min: f32; let max: f32;
     if p0 < p2 { min = p0; max = p2; } else { min = p2; max = p0; };
     let rad = (fa + fb)*half_box;
-    if min > rad || max < -rad { return false } else { return true };
+    !(min > rad || max < -rad)
 }
 
 fn axis_test_x2(half_box: f32, v0: Vector3<f32>, v1: Vector3<f32>, a: f32, b: f32, fa: f32, fb: f32) -> bool {
@@ -25,7 +25,7 @@ fn axis_test_x2(half_box: f32, v0: Vector3<f32>, v1: Vector3<f32>, a: f32, b: f3
     let min: f32; let max: f32;
     if p0 < p1 { min = p0; max = p1; } else { min = p1; max = p0; };
     let rad = (fa + fb)*half_box;
-    if min > rad || max < -rad { return false } else { return true };
+    !(min > rad || max < -rad)
 }
 
 /*======================== Y-tests ========================*/
@@ -36,7 +36,7 @@ fn axis_test_y02(half_box: f32, v0: Vector3<f32>, v2: Vector3<f32>, a: f32, b: f
     let min: f32; let max: f32;
     if p0 < p2 { min = p0; max = p2; } else { min = p2; max = p0; };
     let rad = (fa + fb)*half_box;
-    if min > rad || max < -rad { return false } else { return true };
+    !(min > rad || max < -rad)
 }
 
 fn axis_test_y1(half_box: f32, v0: Vector3<f32>, v1: Vector3<f32>, a: f32, b: f32, fa: f32, fb: f32) -> bool {
@@ -45,7 +45,7 @@ fn axis_test_y1(half_box: f32, v0: Vector3<f32>, v1: Vector3<f32>, a: f32, b: f3
     let min: f32; let max: f32;
     if p0 < p1 { min = p0; max = p1; } else { min = p1; max = p0; };
     let rad = (fa + fb)*half_box;
-    if min > rad || max < -rad { return false } else { return true };
+    !(min > rad || max < -rad)
 }
 
 /*======================== Z-tests ========================*/
@@ -56,7 +56,7 @@ fn axis_test_z12(half_box: f32, v1: Vector3<f32>, v2: Vector3<f32>, a: f32, b: f
     let min: f32; let max: f32;
     if p2 < p1 { min = p2; max = p1; } else { min = p1; max = p2; };
     let rad = (fa + fb)*half_box;
-    if min > rad || max < -rad { return false } else { return true };
+    !(min > rad || max < -rad)
 }
 
 fn axis_test_z0(half_box: f32, v0: Vector3<f32>, v1: Vector3<f32>, a: f32, b: f32, fa: f32, fb: f32) -> bool {
@@ -65,7 +65,7 @@ fn axis_test_z0(half_box: f32, v0: Vector3<f32>, v1: Vector3<f32>, a: f32, b: f3
     let min: f32; let max: f32;
     if p0 < p1 { min = p0; max = p1; } else { min = p1; max = p0; };
     let rad = (fa + fb)*half_box;
-    if min > rad || max < -rad { return false } else { return true };
+    !(min > rad || max < -rad)
 }
 
 fn plane_box_overlap(half_box: f32, normal: Vector3<f32>, vert: Vector3<f32>) -> bool {
@@ -86,7 +86,7 @@ fn plane_box_overlap(half_box: f32, normal: Vector3<f32>, vert: Vector3<f32>) ->
     if normal.dot(vmin) > 0.0 { return false };
     if normal.dot(vmax) >= 0.0 { return true };
 
-    return false;
+    false
 }
 
 pub fn intersect(half_box: f32, center: Vector3<f32>, p0: Vector3<f32>, p1: Vector3<f32>, p2: Vector3<f32>) -> Option<Vector3::<f32>> {
