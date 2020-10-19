@@ -25,25 +25,25 @@ use structopt::StructOpt;
 struct Opt {
     #[structopt(parse(from_os_str))]
     file: PathBuf,
-
     #[structopt(parse(from_os_str))]
     output: PathBuf,
-
     #[structopt(long, possible_values = &["lossy", "lossless"], default_value = "lossy")]
     simplify: String,
-
     #[structopt(short, long, default_value = "1")]
-    scale: f32
+    scale: f32,
+    #[structopt(short, long, possible_values = &["micro", "normal"], default_value = "normal")]
+    bricktype: String,
 }
 
 fn main() {
     let opt = Opt::from_args();
+    println!("{:?}", opt);
     let mut octree = generate_octree(&opt);
 
     match opt.output.extension() {
         Some(extension) => {
             match extension.to_str() {
-                Some("brs") => write_brs_data(&mut octree, opt.output, opt.simplify),
+                Some("brs") => write_brs_data(&mut octree, opt.output, opt.simplify, opt.bricktype),
                 // Implement new file types
                 Some(extension) => panic!("Output file type {} is not supported", extension),
                 None => panic!("Invalid output file type")
@@ -105,23 +105,45 @@ fn generate_octree(opt: &Opt) -> VoxelTree<Vector4<u8>> {
     }
 
     println!("Voxelizing...");
-    voxelize(&mut models, &material_images, opt.scale)
+    voxelize(&mut models, &material_images, opt.scale, opt.bricktype.clone())
 }
 
-fn write_brs_data(mut octree: &mut VoxelTree::<Vector4::<u8>>, output: PathBuf, simplify_algo: String) {
-    let blank_data = match File::open("blank.brs") {
-        Err(e) => panic!("Error encountered when loading blank.brs file: {:}", e.to_string()),
+fn write_brs_data(mut octree: &mut VoxelTree::<Vector4::<u8>>, output: PathBuf, simplify_algo: String, bricktype: String) {
+    let reference_save = match File::open("reference.brs") {
+        Err(e) => panic!("Error encountered when loading microbrick.brs file: {:}", e.to_string()),
         Ok(data) => data,
     };
 
-    let mut write_data = brs::Reader::new(blank_data).unwrap().read_header1().unwrap().read_header2().unwrap().into_write_data().unwrap();
-    write_data.bricks.clear();
+    let reference_save = match brs::Reader::new(reference_save) {
+        Err(e) => panic!("Error encountered when reading microbrick.brs: {:}", e.to_string()),
+        Ok(data) => data,
+    };
+
+    let smallguy = brs::User {
+        name: "Smallguy".to_string(),
+        id: brs::uuid::Uuid::parse_str("8efaeb23-5e82-428e-b575-0dd30270146e").unwrap(),
+    };
+
+    let mut write_data = brs::WriteData {
+        author: smallguy.clone(),
+        brick_assets: reference_save.brick_assets().to_vec(),
+        brick_owners: vec![smallguy],
+        bricks: vec![],
+        colors: reference_save.colors().to_vec(),
+        description: "generated with obj2brs".to_string(),
+        map: reference_save.map().to_string(),
+        materials: reference_save.materials().to_vec(),
+        mods: vec![],
+        save_time: brs::chrono::DateTime::from(std::time::SystemTime::now()),
+    };
+
+    println!("{:?}", write_data.brick_assets);
 
     println!("Simplifying {:?}...", simplify_algo);
     if simplify_algo == "lossless" {
-        simplify_lossless(&mut octree, &mut write_data);
+        simplify_lossless(&mut octree, &mut write_data, bricktype);
     } else {
-        simplify(&mut octree, &mut write_data);
+        simplify(&mut octree, &mut write_data, bricktype);
     }
 
     // Write file

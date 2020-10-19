@@ -3,7 +3,7 @@ use crate::color::*;
 
 use cgmath::{ Vector3, Vector4 };
 
-pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData) {
+pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData, bricktype: String) {
     let colorset = convert_colorset_to_hsv(&write_data.colors);
 
     loop {
@@ -89,15 +89,17 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
         let height = yp - y;
         let depth = zp - z;
 
+        let scales: (isize, isize, isize) = if bricktype == "micro" { (1, 1, 1) } else { (5, 5, 2) };
+
         write_data.bricks.push(
             brs::Brick {
-                asset_name_index: 0,
+                asset_name_index: if bricktype == "micro" { 0 } else { 1 },
                 // Coordinates are rotated
                 size: (5*width as u32, 5*depth as u32, 2*height as u32),
                 position: (
-                    (5*width + 10*x) as i32,
-                    (5*depth + 10*z) as i32,
-                    (2*height + 4*y) as i32
+                    (scales.0*width + 2*scales.0*x) as i32,
+                    (scales.1*depth + 2*scales.1*z) as i32,
+                    (scales.2*height + 2*scales.2*y) as i32
                 ),
                 direction: brs::Direction::ZPositive,
                 rotation: brs::Rotation::Deg0,
@@ -111,7 +113,7 @@ pub fn simplify(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::W
     }
 }
 
-pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData) {
+pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &mut brs::WriteData, bricktype: String) {
     let d: isize = 1 << octree.size;
     let len = d + 1;
 
@@ -204,15 +206,17 @@ pub fn simplify_lossless(octree: &mut VoxelTree::<Vector4::<u8>>, write_data: &m
         let height = yp - y;
         let depth = zp - z;
 
+        let scales: (isize, isize, isize) = if bricktype == "micro" { (1, 1, 1) } else { (5, 5, 2) };
+
         write_data.bricks.push(
             brs::Brick {
-                asset_name_index: 0,
+                asset_name_index: if bricktype == "micro" { 0 } else { 1 },
                 // Coordinates are rotated
-                size: (5*width as u32, 5*depth as u32, 2*height as u32),
+                size: ((scales.0*width) as u32, (scales.1*depth) as u32, (scales.2*height) as u32),
                 position: (
-                    (5*width + 10*x) as i32,
-                    (5*depth + 10*z) as i32,
-                    (2*height + 4*y) as i32
+                    (scales.0*width + 2*scales.0*x) as i32,
+                    (scales.1*depth + 2*scales.1*z) as i32,
+                    (scales.2*height + 2*scales.2*y) as i32
                 ),
                 direction: brs::Direction::ZPositive,
                 rotation: brs::Rotation::Deg0,

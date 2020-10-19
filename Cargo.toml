@@ -10,8 +10,7 @@ include = ["blank.brs"]
 
 [dependencies]
 structopt = { version = "0.3", default-features = false }
-
-brs = "0.2"
+brs = { git = "https://github.com/Brickadia/brs", branch = "0.3" }
 tobj = "2.0"
 cgmath = "0.17"
 image = "0.23"

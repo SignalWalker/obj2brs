@@ -16,14 +16,15 @@ struct Triangle {
     uvs: Option::<[Vector2::<f32>; 3]>
 }
 
-pub fn voxelize(models: &mut Vec::<tobj::Model>, materials: &[RgbaImage], scale: f32) -> VoxelTree::<Vector4::<u8>> {
+pub fn voxelize(models: &mut Vec::<tobj::Model>, materials: &[RgbaImage], scale: f32, bricktype: String) -> VoxelTree::<Vector4::<u8>> {
     let mut octree = VoxelTree::<Vector4::<u8>>::new();
 
     // Determine model AABB to expand triangle octree to final size
     // Multiply y-coordinate by 2.5 to take into account plates
+    let yscale = if bricktype == "micro" { 1.0 } else { 2.5 };
     
     let u = &models[0].mesh.positions; // Guess initial
-    let mut min = Vector3::new(u[0] * scale, u[1] * 2.5 * scale, u[2] * scale);
+    let mut min = Vector3::new(u[0] * scale, u[1] * yscale * scale, u[2] * scale);
     let mut max = min;
 
     for m in models.iter_mut() {
@@ -31,7 +32,7 @@ pub fn voxelize(models: &mut Vec::<tobj::Model>, materials: &[RgbaImage], scale:
         for v in (0..p.len()).step_by(3) {
 
             p[v] *= scale;
-            p[v + 1] *= 2.5 * scale;
+            p[v + 1] *= yscale * scale;
             p[v + 2] *= scale;
 
             for m in 0 .. 3 {
