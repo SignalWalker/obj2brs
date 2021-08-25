@@ -1,27 +1,30 @@
-use brs;
+use brickadia as brs;
 use tobj;
 
 use std::fs::File;
 
-use image::{RgbaImage};
 use cgmath::Vector4;
+use image::RgbaImage;
 
-mod octree;
-mod intersect;
 mod barycentric;
-mod voxelize;
 mod color;
+mod intersect;
+mod octree;
 mod simplify;
+mod voxelize;
 
 use octree::VoxelTree;
-use voxelize::voxelize;
 use simplify::*;
+use voxelize::voxelize;
 
 use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "obj2brs", about = "Voxelizes OBJ files to create textured voxel models")]
+#[structopt(
+    name = "obj2brs",
+    about = "Voxelizes OBJ files to create textured voxel models"
+)]
 struct Opt {
     #[structopt(parse(from_os_str))]
     file: PathBuf,
@@ -45,30 +48,38 @@ fn main() {
     match opt.output.extension() {
         Some(extension) => {
             match extension.to_str() {
-                Some("brs") => write_brs_data(&mut octree, opt.output, opt.simplify, opt.bricktype, opt.matchcolor > 0),
+                Some("brs") => write_brs_data(
+                    &mut octree,
+                    opt.output,
+                    opt.simplify,
+                    opt.bricktype,
+                    opt.matchcolor > 0,
+                ),
                 // Implement new file types
                 Some(extension) => panic!("Output file type {} is not supported", extension),
-                None => panic!("Invalid output file type")
+                None => panic!("Invalid output file type"),
             }
-        },
-        None => panic!("Invalid output file type")
+        }
+        None => panic!("Invalid output file type"),
     }
 }
 
 fn generate_octree(opt: &Opt) -> VoxelTree<Vector4<u8>> {
     match opt.file.extension() {
-        Some(extension) => {
-            match extension.to_str() {
-                Some("obj") => {}
-                _ => panic!("Only input files of type obj are supported")
-            }
+        Some(extension) => match extension.to_str() {
+            Some("obj") => {}
+            _ => panic!("Only input files of type obj are supported"),
         },
-        None => panic!("Invalid input file type")
+        None => panic!("Invalid input file type"),
     };
 
     let file = match opt.file.canonicalize() {
-        Err(e) => panic!("Error encountered when looking for file {:?}: {}", opt.file, e.to_string()),
-        Ok(f) => f
+        Err(e) => panic!(
+            "Error encountered when looking for file {:?}: {}",
+            opt.file,
+            e.to_string()
+        ),
+        Ok(f) => f,
     };
 
     println!("Importing model...");
@@ -80,75 +91,94 @@ fn generate_octree(opt: &Opt) -> VoxelTree<Vector4<u8>> {
     println!("Loading materials...");
     let mut material_images = Vec::<RgbaImage>::new();
     for material in materials {
-
         if material.diffuse_texture == "" {
-            println!("\tMaterial {} does not have an associated diffuse texture", material.name);
+            println!(
+                "\tMaterial {} does not have an associated diffuse texture",
+                material.name
+            );
 
             // Create mock texture from diffuse color
             let mut image = RgbaImage::new(1, 1);
-            image.put_pixel(0, 0, image::Rgba([
-                (material.diffuse[0] * 255.) as u8,
-                (material.diffuse[1] * 255.) as u8,
-                (material.diffuse[2] * 255.) as u8,
-                (material.dissolve * 255.) as u8
-            ]));
+            image.put_pixel(
+                0,
+                0,
+                image::Rgba([
+                    (material.diffuse[0] * 255.) as u8,
+                    (material.diffuse[1] * 255.) as u8,
+                    (material.diffuse[2] * 255.) as u8,
+                    (material.dissolve * 255.) as u8,
+                ]),
+            );
 
             material_images.push(image);
         } else {
             let image_path = opt.file.parent().unwrap().join(&material.diffuse_texture);
-            println!("\tLoading diffuse texture for {} from: {:?}", material.name, image_path);
+            println!(
+                "\tLoading diffuse texture for {} from: {:?}",
+                material.name, image_path
+            );
 
             let image = match image::open(&image_path) {
-                Err(e) =>  panic!("Error encountered when loading {} texture file from {:?}: {}", &material.diffuse_texture, &image_path, e.to_string()),
-                Ok(f) => f.into_rgba(),
+                Err(e) => panic!(
+                    "Error encountered when loading {} texture file from {:?}: {}",
+                    &material.diffuse_texture,
+                    &image_path,
+                    e.to_string()
+                ),
+                Ok(f) => f.into_rgba8(),
             };
             material_images.push(image);
         }
     }
 
     println!("Voxelizing...");
-    voxelize(&mut models, &material_images, opt.scale, opt.bricktype.clone())
+    voxelize(
+        &mut models,
+        &material_images,
+        opt.scale,
+        opt.bricktype.clone(),
+    )
 }
 
-fn write_brs_data(mut octree: &mut VoxelTree::<Vector4::<u8>>, output: PathBuf, simplify_algo: String, bricktype: String, match_to_colorset: bool) {
-    let reference_save = match File::open("reference.brs") {
-        Err(e) => panic!("Error encountered when loading microbrick.brs file: {:}", e.to_string()),
-        Ok(data) => data,
+fn write_brs_data(
+    octree: &mut VoxelTree<Vector4<u8>>,
+    output: PathBuf,
+    simplify_algo: String,
+    bricktype: String,
+    match_to_colorset: bool,
+) {
+    let owner = brs::save::User {
+        name: "obj2brs".to_string(),
+        id: "00000000-0000-0000-0000-000000000003".parse().unwrap(),
     };
 
-    let reference_save = match brs::Reader::new(reference_save) {
-        Err(e) => panic!("Error encountered when reading microbrick.brs: {:}", e.to_string()),
-        Ok(data) => data,
-    };
+    let reference_save = brs::read::SaveReader::new(File::open("reference.brs").unwrap()).unwrap().read_all_skip_preview().unwrap();
 
-    let smallguy = brs::User {
-        name: "Smallguy".to_string(),
-        id: brs::uuid::Uuid::parse_str("8efaeb23-5e82-428e-b575-0dd30270146e").unwrap(),
+    let mut write_data = brs::save::SaveData {
+        header1: brs::save::Header1 {
+            author: owner.clone(),
+            host: Some(owner.clone()),
+            ..Default::default()
+        },
+        header2: brs::save::Header2 {
+            brick_assets: vec!["PB_DefaultMicroBrick".into(), "PB_DefaultBrick".into()],
+            brick_owners: vec![brs::save::BrickOwner::from_user_bricks(owner.clone(), 1)],
+            colors: reference_save.header2.colors,
+            ..Default::default()
+        },
+        ..Default::default()
     };
-
-    let mut write_data = brs::WriteData {
-        author: smallguy.clone(),
-        brick_assets: reference_save.brick_assets().to_vec(),
-        brick_owners: vec![smallguy],
-        bricks: vec![],
-        colors: reference_save.colors().to_vec(),
-        description: "generated with obj2brs".to_string(),
-        map: reference_save.map().to_string(),
-        materials: reference_save.materials().to_vec(),
-        mods: vec![],
-        save_time: brs::chrono::DateTime::from(std::time::SystemTime::now()),
-    };
-
-    println!("{:?}", write_data.brick_assets);
 
     println!("Simplifying {:?}...", simplify_algo);
     if simplify_algo == "lossless" {
-        simplify_lossless(&mut octree, &mut write_data, bricktype, match_to_colorset);
+        simplify_lossless(octree, &mut write_data, bricktype, match_to_colorset);
     } else {
-        simplify(&mut octree, &mut write_data, bricktype, match_to_colorset);
+        simplify(octree, &mut write_data, bricktype, match_to_colorset);
     }
 
     // Write file
     println!("Writing file...");
-    brs::write_save(&mut File::create(output).unwrap(), &write_data).unwrap();
+    brs::write::SaveWriter::new(File::create(output).unwrap(), write_data)
+        .write()
+        .unwrap();
 }

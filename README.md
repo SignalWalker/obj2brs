@@ -9,7 +9,7 @@ Currently only supports voxelization and simplification for BRS files.
 
 ```
 USAGE:
-    cargo run --release <file> <output> --bricktype <bricktype> --scale <scale> --simplify <simplify>
+    cargo run --release -- <file> <output> --bricktype <bricktype> --scale <scale> --simplify <simplify>
 ```
 
 The program supports two color modes when simplifying: lossless, and lossy. Lossless will prioritize color accuracy, while lossy will prioritize brick count.
