@@ -205,6 +205,7 @@ impl Obj2Brs {
             self.simplify,
             self.bricktype,
             self.matchcolor,
+            self.raise,
         );
     }
 }
@@ -302,6 +303,7 @@ fn write_brs_data(
     simplify: bool,
     bricktype: BrickType,
     match_to_colorset: bool,
+    raise: bool,
 ) {
     let owner = brs::save::User {
         name: "obj2brs".to_string(),
@@ -327,6 +329,24 @@ fn write_brs_data(
         simplify_lossy(octree, &mut write_data, bricktype, match_to_colorset);
     } else {
         simplify_lossless(octree, &mut write_data, bricktype, match_to_colorset);
+    }
+
+    if raise {
+        let mut min_z = 0;
+        for brick in &write_data.bricks {
+            let height = match brick.size {
+                brs::save::Size::Procedural(_x, _y, z) => z,
+                _ => 0
+            };
+            let z = brick.position.2 - height as i32;
+            if z < min_z {
+                min_z = z;
+            }
+        }
+
+        for brick in &mut write_data.bricks {
+            brick.position.2 -= min_z;
+        }
     }
 
     // Write file
