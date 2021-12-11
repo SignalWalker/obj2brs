@@ -9,8 +9,7 @@ edition = "2018"
 include = ["reference.brs"]
 
 [dependencies]
-structopt = { version = "0.3", default-features = false }
-brickadia = "0.1"
+brickadia = "0.1.14"
 tobj = "2.0"
 cgmath = "0.17"
 image = "0.23"

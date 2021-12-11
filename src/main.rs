@@ -12,8 +12,7 @@ use eframe::{run_native, NativeOptions, epi::App};
 use egui::{color::*, *};
 use simplify::*;
 use std::fs::File;
-use std::{env, path::{Path, PathBuf}};
-use structopt::StructOpt;
+use std::{env, path::Path};
 use voxelize::voxelize;
 
 const WINDOW_WIDTH: f32 = 600.0;
@@ -22,38 +21,20 @@ const WINDOW_HEIGHT: f32 = 600.0;
 const ERROR_COLOR: Color32 = Color32::from_rgb(255, 168, 168);
 const FOLDER_COLOR: Color32 = Color32::from_rgb(255, 206, 70);
 
-#[derive(Debug, StructOpt)]
-#[structopt(
-    name = "obj2brs",
-    about = "Voxelizes OBJ files to create textured voxel models"
-)]
-struct Opt {
-    #[structopt(parse(from_os_str))]
-    file: PathBuf,
-    #[structopt(parse(from_os_str))]
-    output: PathBuf,
-    #[structopt(long, possible_values = &["lossy", "lossless"], default_value = "lossy")]
-    simplify: String,
-    #[structopt(short, long, default_value = "1")]
-    scale: f32,
-    #[structopt(short, long, possible_values = &["micro", "normal"], default_value = "normal")]
-    bricktype: String,
-    #[structopt(short, long, parse(from_occurrences))]
-    matchcolor: u8,
-}
-
-#[derive(Debug, PartialEq)]
-enum BrickType {
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum BrickType {
     Microbricks,
     Default
 }
 
+#[derive(Debug)]
 struct Obj2Brs {
     file: String,
     output: String,
     simplify: bool,
     scale: f32,
     bricktype: BrickType,
+    matchcolor: bool,
     raise: bool,
 }
 
@@ -65,6 +46,7 @@ impl Default for Obj2Brs {
             simplify: true,
             scale: 1.0,
             bricktype: BrickType::Microbricks,
+            matchcolor: false,
             raise: true,
         }
     }
@@ -96,29 +78,7 @@ impl App for Obj2Brs {
             ui.vertical_centered(|ui| {
                 if ui.button("Voxelize").clicked() {
                     if Path::new(&self.file).exists() && Path::new(&self.output).exists() {
-                        let filename = Path::new(&self.file).file_stem().unwrap();
-    
-                        let file = PathBuf::from(self.file.clone());
-                        let output = PathBuf::from(self.output.clone() + "/" + filename.to_str().unwrap() + ".brs");
-                        let simplify = if self.simplify {
-                            "lossy".into()
-                        } else {
-                            "lossless".into()
-                        };
-                        let bricktype = match &self.bricktype {
-                            BrickType::Microbricks => "micro".into(),
-                            BrickType::Default => "normal".into(),
-                        };
-    
-                        let opt = Opt {
-                            file,
-                            output,
-                            simplify,
-                            scale: self.scale,
-                            bricktype,
-                            matchcolor: 0,
-                        };
-                        run(opt);
+                        self.run()
                     }
                 }
             });
@@ -231,6 +191,22 @@ impl Obj2Brs {
             });
         });
     }
+
+    fn run(&self) {
+        println!("{:?}", self);
+        let mut octree = generate_octree(self);
+
+        let filename = Path::new(&self.file).file_stem().unwrap();
+        let output_file = self.output.clone() + "/" + filename.to_str().unwrap() + ".brs";
+
+        write_brs_data(
+            &mut octree,
+            output_file,
+            self.simplify,
+            self.bricktype,
+            self.matchcolor,
+        );
+    }
 }
 
 fn main() {
@@ -252,39 +228,8 @@ fn main() {
     run_native(Box::new(app), win_option);
 }
 
-fn run(opt: Opt) {
-    println!("{:?}", opt);
-    let mut octree = generate_octree(&opt);
-
-    match opt.output.extension() {
-        Some(extension) => {
-            match extension.to_str() {
-                Some("brs") => write_brs_data(
-                    &mut octree,
-                    opt.output,
-                    opt.simplify,
-                    opt.bricktype,
-                    opt.matchcolor > 0,
-                ),
-                // Implement new file types
-                Some(extension) => panic!("Output file type {} is not supported", extension),
-                None => panic!("Invalid output file type"),
-            }
-        }
-        None => panic!("Invalid output file type"),
-    }
-}
-
-fn generate_octree(opt: &Opt) -> octree::VoxelTree<Vector4<u8>> {
-    match opt.file.extension() {
-        Some(extension) => match extension.to_str() {
-            Some("obj") => {}
-            _ => panic!("Only input files of type obj are supported"),
-        },
-        None => panic!("Invalid input file type"),
-    };
-
-    let file = match opt.file.canonicalize() {
+fn generate_octree(opt: &Obj2Brs) -> octree::VoxelTree<Vector4<u8>> {
+    let file = match Path::new(&opt.file).canonicalize() {
         Err(e) => panic!(
             "Error encountered when looking for file {:?}: {}",
             opt.file,
@@ -323,7 +268,7 @@ fn generate_octree(opt: &Opt) -> octree::VoxelTree<Vector4<u8>> {
 
             material_images.push(image);
         } else {
-            let image_path = opt.file.parent().unwrap().join(&material.diffuse_texture);
+            let image_path = Path::new(&opt.file).parent().unwrap().join(&material.diffuse_texture);
             println!(
                 "\tLoading diffuse texture for {} from: {:?}",
                 material.name, image_path
@@ -347,15 +292,15 @@ fn generate_octree(opt: &Opt) -> octree::VoxelTree<Vector4<u8>> {
         &mut models,
         &material_images,
         opt.scale,
-        opt.bricktype.clone(),
+        opt.bricktype,
     )
 }
 
 fn write_brs_data(
     octree: &mut octree::VoxelTree<Vector4<u8>>,
-    output: PathBuf,
-    simplify_algo: String,
-    bricktype: String,
+    output: String,
+    simplify: bool,
+    bricktype: BrickType,
     match_to_colorset: bool,
 ) {
     let owner = brs::save::User {
@@ -378,15 +323,15 @@ fn write_brs_data(
         ..Default::default()
     };
 
-    println!("Simplifying {:?}...", simplify_algo);
-    if simplify_algo == "lossless" {
-        simplify_lossless(octree, &mut write_data, bricktype, match_to_colorset);
+    if simplify {
+        simplify_lossy(octree, &mut write_data, bricktype, match_to_colorset);
     } else {
-        simplify(octree, &mut write_data, bricktype, match_to_colorset);
+        simplify_lossless(octree, &mut write_data, bricktype, match_to_colorset);
     }
 
     // Write file
     println!("Writing file...");
+    
     brs::write::SaveWriter::new(File::create(output).unwrap(), write_data)
         .write()
         .unwrap();

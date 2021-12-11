@@ -1,5 +1,6 @@
 use crate::barycentric::interpolate_uv;
 use crate::color::*;
+use crate::BrickType;
 use crate::intersect::intersect;
 use crate::octree::{Branches, TreeBody, VoxelTree};
 
@@ -20,13 +21,13 @@ pub fn voxelize(
     models: &mut Vec<tobj::Model>,
     materials: &[RgbaImage],
     scale: f32,
-    bricktype: String,
+    bricktype: BrickType,
 ) -> VoxelTree<Vector4<u8>> {
     let mut octree = VoxelTree::<Vector4<u8>>::new();
 
     // Determine model AABB to expand triangle octree to final size
     // Multiply y-coordinate by 2.5 to take into account plates
-    let yscale = if bricktype == "micro" { 1.0 } else { 2.5 };
+    let yscale = if bricktype == BrickType::Microbricks { 1.0 } else { 2.5 };
 
     let u = &models[0].mesh.positions; // Guess initial
     let mut min = Vector3::new(u[0] * scale, u[1] * yscale * scale, u[2] * scale);
