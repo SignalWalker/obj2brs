@@ -270,10 +270,10 @@ pub fn simplify_lossless(
         let height = yp - y;
         let depth = zp - z;
 
-        let scales: (isize, isize, isize) = if bricktype == "micro" {
-            (1, 1, 1)
+        let scale = if bricktype == "micro" {
+            5
         } else {
-            (5, 5, 2)
+            1
         };
 
         let color = if match_to_colorset {
@@ -286,14 +286,14 @@ pub fn simplify_lossless(
             asset_name_index: if bricktype == "micro" { 0 } else { 1 },
             // Coordinates are rotated
             size: brs::Size::Procedural(
-                (scales.0 * width) as u32,
-                (scales.1 * depth) as u32,
-                (scales.2 * height) as u32,
+                (5 * width) as u32 / scale as u32,
+                (5 * depth) as u32 / scale as u32,
+                (2 * height) as u32 / scale as u32,
             ),
             position: (
-                (scales.0 * width + 2 * scales.0 * x) as i32,
-                (scales.1 * depth + 2 * scales.1 * z) as i32,
-                (scales.2 * height + 2 * scales.2 * y) as i32,
+                (5 * width + 10 * x) as i32 / scale,
+                (5 * depth + 10 * z) as i32 / scale,
+                (5 * height + 4 * y) as i32 / scale,
             ),
             color,
             owner_index: 1,

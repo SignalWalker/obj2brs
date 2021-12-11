@@ -10,9 +10,13 @@ include = ["reference.brs"]
 
 [dependencies]
 structopt = { version = "0.3", default-features = false }
-brickadia = "0.1.12"
+brickadia = "0.1"
 tobj = "2.0"
 cgmath = "0.17"
 image = "0.23"
 uuid = "0.7"
 chrono = "0.4"
+egui = { git = "https://github.com/emilk/egui" }
+eframe = { git = "https://github.com/emilk/egui" }
+nfd = "0.0.4"
+dirs = "4.0.0"
