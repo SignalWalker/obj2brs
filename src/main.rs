@@ -11,15 +11,18 @@ use cgmath::Vector4;
 use eframe::{run_native, NativeOptions, epi::App};
 use egui::{color::*, *};
 use simplify::*;
+use uuid::Uuid;
+use std::ffi::OsString;
 use std::fs::File;
 use std::{env, path::Path};
 use voxelize::voxelize;
 
 const WINDOW_WIDTH: f32 = 600.0;
-const WINDOW_HEIGHT: f32 = 600.0;
+const WINDOW_HEIGHT: f32 = 420.0;
 
 const ERROR_COLOR: Color32 = Color32::from_rgb(255, 168, 168);
 const FOLDER_COLOR: Color32 = Color32::from_rgb(255, 206, 70);
+const BLUE: Color32 = Color32::from_rgb(15, 98, 254);
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BrickType {
@@ -29,25 +32,31 @@ pub enum BrickType {
 
 #[derive(Debug)]
 struct Obj2Brs {
-    file: String,
-    output: String,
+    input_file_path: String,
+    output_directory: String,
+    save_name: String,
     simplify: bool,
     scale: f32,
     bricktype: BrickType,
     matchcolor: bool,
     raise: bool,
+    owner_name: String,
+    owner_id: String,
 }
 
 impl Default for Obj2Brs {
     fn default() -> Self {
         Self {
-            file: "test.obj".into(),
-            output: "builds".into(),
+            input_file_path: "test.obj".into(),
+            output_directory: "builds".into(),
+            save_name: "test".into(),
             simplify: true,
             scale: 1.0,
             bricktype: BrickType::Microbricks,
             matchcolor: false,
             raise: true,
+            owner_name: "obj2brs".into(),
+            owner_id: "d66c4ad5-59fc-4a9b-80b8-08dedc25bff9".into(),
         }
     }
 }
@@ -73,14 +82,22 @@ impl App for Obj2Brs {
                     self.options(ui);
                 });
 
-            ui.add(Separator::default().spacing(20.));
+            ui.horizontal(|ui| {
+                ui.label("❓ You can find your own Brickadia ID by visiting");
+                ui.add(Hyperlink::from_label_and_url("brickadia.com/account", "https://brickadia.com/account"));
+                ui.label("and clicking View Profile");
+            });
+
+            ui.label("Your ID will be shown in the URL");
             
+            ui.add_space(20.);
             ui.vertical_centered(|ui| {
-                if ui.button("Voxelize").clicked() {
-                    if Path::new(&self.file).exists() && Path::new(&self.output).exists() {
+                if ui.add(Button::new(RichText::new("Voxelize").color(Color32::WHITE)).fill(BLUE)).clicked() {
+                    if Path::new(&self.input_file_path).exists() && Path::new(&self.output_directory).exists() {
                         self.run()
                     }
                 }
+                ui.label("WARNING! WILL OVERWRITE ANY EXISTING BRS IN OUTPUT DIRECTORY")
             });
             
             self.footer(ctx);
@@ -95,8 +112,9 @@ impl App for Obj2Brs {
 impl Obj2Brs {
     fn paths(&mut self, ui: &mut Ui) {
         let Self {
-            file,
-            output,
+            input_file_path: file,
+            output_directory: output,
+            save_name,
             ..
         } = self;
 
@@ -114,6 +132,9 @@ impl Obj2Brs {
                     nfd::Response::Okay(file_path) => {
                         file.clear();
                         file.push_str(file_path.as_str());
+                        let old = save_name.clone();
+                        save_name.clear();
+                        save_name.push_str(Path::new(&file_path.as_str()).file_stem().unwrap_or(&OsString::from(old)).to_str().unwrap());
                     },
                     _ => ()
                 }
@@ -127,7 +148,7 @@ impl Obj2Brs {
             ERROR_COLOR
         };
 
-        ui.add(Label::new("Output Directory"));
+        ui.label("Output Directory").on_hover_text("Where generated save will be written to");
         ui.horizontal(|ui| {
             ui.add(TextEdit::singleline(output).desired_width(400.0).text_color(dir_color));
             if ui.button(egui::RichText::new("🗁").color(FOLDER_COLOR)).clicked() {
@@ -147,6 +168,10 @@ impl Obj2Brs {
             }
         });
         ui.end_row();
+
+        ui.label("Save Name").on_hover_text("Name for the brickadia savefile");
+        ui.add(TextEdit::singleline(save_name));
+        ui.end_row();
     }
 
     fn options(&mut self, ui: &mut Ui) {
@@ -155,18 +180,29 @@ impl Obj2Brs {
             scale,
             bricktype,
             raise,
+            matchcolor,
+            owner_name: name,
+            owner_id: uuid,
             ..
         } = self;
 
-        ui.label("Lossy Conversion");
+        ui.label("Lossy Conversion").on_hover_text("Whether or not to merge similar bricks to create a less detailed model");
         ui.add(Checkbox::new(simplify, "Simplify (greatly reduces brickcount)"));
         ui.end_row();
 
-        ui.label("Scale");
+        ui.label("Raise Underground").on_hover_text("Prevents parts of the model from loading under the ground plate in Brickadia");
+        ui.add(Checkbox::new(raise, ""));
+        ui.end_row();
+
+        ui.label("Match to Colorset").on_hover_text("Modify the color of the model to match the default color palette in Brickadia");
+        ui.add(Checkbox::new(matchcolor, "Use Default Palette"));
+        ui.end_row();
+
+        ui.label("Scale").on_hover_text("Adjusts the overall size of the generated save, not the size of the individual bricks");
         ui.add(DragValue::new(scale).min_decimals(2).prefix("x").speed(0.1));
         ui.end_row();
 
-        ui.label("Bricktype");
+        ui.label("Bricktype").on_hover_text("Which type of bricks will make up the generated save, use default to get a stud texture");
         ComboBox::from_label("")
             .selected_text(format!("{:?}", bricktype))
             .show_ui(ui, |ui| {
@@ -175,8 +211,16 @@ impl Obj2Brs {
             });
         ui.end_row();
 
-        ui.label("Raise Underground");
-        ui.add(Checkbox::new(raise, ""));
+        let id_color = match Uuid::parse_str(uuid) {
+            Ok(_id) => Color32::WHITE,
+            Err(_e) => ERROR_COLOR,
+        };
+
+        ui.label("Brick Owner").on_hover_text("Who will have ownership of the generated bricks");
+        ui.horizontal(|ui| {
+            ui.add(TextEdit::singleline(name).desired_width(100.0));
+            ui.add(TextEdit::singleline(uuid).desired_width(300.0).text_color(id_color));
+        });
         ui.end_row();
     }
 
@@ -196,16 +240,9 @@ impl Obj2Brs {
         println!("{:?}", self);
         let mut octree = generate_octree(self);
 
-        let filename = Path::new(&self.file).file_stem().unwrap();
-        let output_file = self.output.clone() + "/" + filename.to_str().unwrap() + ".brs";
-
         write_brs_data(
             &mut octree,
-            output_file,
-            self.simplify,
-            self.bricktype,
-            self.matchcolor,
-            self.raise,
+            &self,
         );
     }
 }
@@ -218,7 +255,7 @@ fn main() {
     };
 
     let app = Obj2Brs {
-        output: build_dir,
+        output_directory: build_dir,
         ..Default::default()
     };
     let win_option = NativeOptions {
@@ -230,10 +267,10 @@ fn main() {
 }
 
 fn generate_octree(opt: &Obj2Brs) -> octree::VoxelTree<Vector4<u8>> {
-    let file = match Path::new(&opt.file).canonicalize() {
+    let file = match Path::new(&opt.input_file_path).canonicalize() {
         Err(e) => panic!(
             "Error encountered when looking for file {:?}: {}",
-            opt.file,
+            opt.input_file_path,
             e.to_string()
         ),
         Ok(f) => f,
@@ -269,7 +306,7 @@ fn generate_octree(opt: &Obj2Brs) -> octree::VoxelTree<Vector4<u8>> {
 
             material_images.push(image);
         } else {
-            let image_path = Path::new(&opt.file).parent().unwrap().join(&material.diffuse_texture);
+            let image_path = Path::new(&opt.input_file_path).parent().unwrap().join(&material.diffuse_texture);
             println!(
                 "\tLoading diffuse texture for {} from: {:?}",
                 material.name, image_path
@@ -299,15 +336,11 @@ fn generate_octree(opt: &Obj2Brs) -> octree::VoxelTree<Vector4<u8>> {
 
 fn write_brs_data(
     octree: &mut octree::VoxelTree<Vector4<u8>>,
-    output: String,
-    simplify: bool,
-    bricktype: BrickType,
-    match_to_colorset: bool,
-    raise: bool,
+    opts: &Obj2Brs,
 ) {
     let owner = brs::save::User {
-        name: "obj2brs".to_string(),
-        id: "00000000-0000-0000-0000-000000000420".parse().unwrap(),
+        name: opts.owner_name.clone(),
+        id: opts.owner_id.parse().unwrap(),
     };
 
     let mut write_data = brs::save::SaveData {
@@ -319,19 +352,19 @@ fn write_brs_data(
         header2: brs::save::Header2 {
             brick_assets: vec!["PB_DefaultMicroBrick".into(), "PB_DefaultBrick".into()],
             brick_owners: vec![brs::save::BrickOwner::from_user_bricks(owner.clone(), 1)],
-            colors: palette::default_palette(),
+            colors: palette::DEFAULT_PALETTE.to_vec(),
             ..Default::default()
         },
         ..Default::default()
     };
 
-    if simplify {
-        simplify_lossy(octree, &mut write_data, bricktype, match_to_colorset);
+    if opts.simplify {
+        simplify_lossy(octree, &mut write_data, opts.bricktype, opts.matchcolor);
     } else {
-        simplify_lossless(octree, &mut write_data, bricktype, match_to_colorset);
+        simplify_lossless(octree, &mut write_data, opts.bricktype, opts.matchcolor);
     }
 
-    if raise {
+    if opts.raise {
         let mut min_z = 0;
         for brick in &write_data.bricks {
             let height = match brick.size {
@@ -352,7 +385,10 @@ fn write_brs_data(
     // Write file
     println!("Writing file...");
     
-    brs::write::SaveWriter::new(File::create(output).unwrap(), write_data)
+    let output_file_path = opts.output_directory.clone() + "/" + &opts.save_name + ".brs";
+    brs::write::SaveWriter::new(File::create(output_file_path).unwrap(), write_data)
         .write()
         .unwrap();
+
+    println!("Save Written!");
 }
