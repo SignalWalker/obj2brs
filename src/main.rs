@@ -1,5 +1,6 @@
 mod barycentric;
 mod color;
+mod icon;
 mod intersect;
 mod octree;
 mod palette;
@@ -247,25 +248,6 @@ impl Obj2Brs {
     }
 }
 
-fn main() {
-    let build_dir = match env::consts::OS {
-        "windows" => dirs::data_local_dir().unwrap().to_str().unwrap().to_string() + "\\Brickadia\\Saved\\Builds",
-        "linux" => dirs::config_dir().unwrap().to_str().unwrap().to_string() + "/Epic/Brickadia/Saved/Builds",
-        _ => String::new(),
-    };
-
-    let app = Obj2Brs {
-        output_directory: build_dir,
-        ..Default::default()
-    };
-    let win_option = NativeOptions {
-        initial_window_size: Some([WINDOW_WIDTH, WINDOW_HEIGHT].into()),
-        resizable: false,
-        ..Default::default()
-    };
-    run_native(Box::new(app), win_option);
-}
-
 fn generate_octree(opt: &Obj2Brs) -> octree::VoxelTree<Vector4<u8>> {
     let file = match Path::new(&opt.input_file_path).canonicalize() {
         Err(e) => panic!(
@@ -391,4 +373,28 @@ fn write_brs_data(
         .unwrap();
 
     println!("Save Written!");
+}
+
+fn main() {
+    let build_dir = match env::consts::OS {
+        "windows" => dirs::data_local_dir().unwrap().to_str().unwrap().to_string() + "\\Brickadia\\Saved\\Builds",
+        "linux" => dirs::config_dir().unwrap().to_str().unwrap().to_string() + "/Epic/Brickadia/Saved/Builds",
+        _ => String::new(),
+    };
+
+    let app = Obj2Brs {
+        output_directory: build_dir,
+        ..Default::default()
+    };
+    let win_option = NativeOptions {
+        initial_window_size: Some([WINDOW_WIDTH, WINDOW_HEIGHT].into()),
+        resizable: false,
+        icon_data: Some(eframe::epi::IconData {
+            rgba: icon::ICON.to_vec(),
+            width: 32,
+            height: 32,
+        }),
+        ..Default::default()
+    };
+    run_native(Box::new(app), win_option);
 }
