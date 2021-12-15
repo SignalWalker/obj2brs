@@ -129,13 +129,13 @@ impl Obj2Brs {
         ui.horizontal(|ui| {
             ui.add(TextEdit::singleline(file).desired_width(400.0).text_color(file_color));
             if ui.button(RichText::new("🗁").color(FOLDER_COLOR)).clicked() {
-                match nfd::open_file_dialog(Some("obj"), None).unwrap() {
-                    nfd::Response::Okay(file_path) => {
+                match nfd2::open_file_dialog(Some("obj"), None).unwrap() {
+                    nfd2::Response::Okay(file_path) => {
                         file.clear();
-                        file.push_str(file_path.as_str());
+                        file.push_str(file_path.to_str().unwrap());
                         let old = save_name.clone();
                         save_name.clear();
-                        save_name.push_str(Path::new(&file_path.as_str()).file_stem().unwrap_or(&OsString::from(old)).to_str().unwrap());
+                        save_name.push_str(Path::new(&file_path.to_str().unwrap()).file_stem().unwrap_or(&OsString::from(old)).to_str().unwrap());
                     },
                     _ => ()
                 }
@@ -154,15 +154,15 @@ impl Obj2Brs {
             ui.add(TextEdit::singleline(output).desired_width(400.0).text_color(dir_color));
             if ui.button(egui::RichText::new("🗁").color(FOLDER_COLOR)).clicked() {
                 let default_dir = if Path::new(&output).exists() {
-                    Some(output.as_str())
+                    Some(Path::new(output.as_str()))
                 } else {
                     None
                 };
 
-                match nfd::open_pick_folder(default_dir).unwrap() {
-                    nfd::Response::Okay(file_path) => {
+                match nfd2::open_pick_folder(default_dir).unwrap() {
+                    nfd2::Response::Okay(file_path) => {
                         output.clear();
-                        output.push_str(file_path.as_str());
+                        output.push_str(file_path.to_str().unwrap());
                     },
                     _ => ()
                 }

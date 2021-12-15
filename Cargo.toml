@@ -17,5 +17,5 @@ uuid = "0.7"
 chrono = "0.4"
 egui = { git = "https://github.com/emilk/egui" }
 eframe = { git = "https://github.com/emilk/egui" }
-nfd = "0.0.4"
 dirs = "4.0.0"
+nfd2 = "0.3.0"
