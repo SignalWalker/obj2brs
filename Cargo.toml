@@ -19,3 +19,5 @@ egui = { git = "https://github.com/emilk/egui" }
 eframe = { git = "https://github.com/emilk/egui" }
 dirs = "4.0.0"
 nfd2 = "0.3.0"
+
+[features]

@@ -1,5 +1,13 @@
 use cgmath::Vector4;
 
+pub fn ftoi(v: f32) -> u8 {
+    (v * 255.).round() as u8
+}
+
+pub fn itof(v: u8) -> f32 {
+    (v as f32) / 255.
+}
+
 pub fn modulus(a: f32, b: f32) -> f32 {
     ((a % b) + b) % b
 }
@@ -10,50 +18,36 @@ pub fn float_equals(a: f32, b: f32) -> bool {
 }
 
 pub fn rgb2hsv(rgb: Vector4<u8>) -> Vector4<f32> {
-    let r = (rgb[0] as f32) / 255f32;
-    let g = (rgb[1] as f32) / 255f32;
-    let b = (rgb[2] as f32) / 255f32;
-    let a = (rgb[3] as f32) / 255f32;
+    let (r, g, b, a) = 
+        (itof(rgb[0]), itof(rgb[1]), itof(rgb[2]), itof(rgb[3]));
 
     // max of rgb is equivalent to V in HSV
-    let mut max = r;
-    if g > max {
-        max = g
-    }
-    if b > max {
-        max = b
-    }
+    let max = r.max(g).max(b);
 
     // min of rgb is V - C where C is chroma (range)
-    let mut min = r;
-    if g < min {
-        min = g
-    }
-    if b < min {
-        min = b
-    }
+    let min = r.min(g).min(b);
 
     let mid = max - min;
 
-    let mut hue = if float_equals(mid, 0f32) {
-        0f32
+    let mut hue = if float_equals(mid, 0.) {
+        0.
     } else if float_equals(max, r) {
-        modulus((g - b) / mid, 6f32)
+        modulus((g - b) / mid, 6.)
     } else if float_equals(max, g) {
-        (b - r) / mid + 2f32
+        (b - r) / mid + 2.
     } else if float_equals(max, b) {
-        (r - g) / mid + 4f32
+        (r - g) / mid + 4.
     } else {
-        0f32
+        0.
     };
 
     hue *= std::f32::consts::PI / 3f32;
-    if hue < 0f32 {
-        hue += 2f32 * std::f32::consts::PI
+    if hue < 0. {
+        hue += 2. * std::f32::consts::PI
     }
 
-    let saturation = if float_equals(max, 0f32) {
-        0f32
+    let saturation = if float_equals(max, 0.) {
+        0.
     } else {
         mid / max
     };
@@ -62,11 +56,13 @@ pub fn rgb2hsv(rgb: Vector4<u8>) -> Vector4<f32> {
 }
 
 fn color_conversion(color: u8) -> u8 {
-    if (color as f64 / 255.0) > 0.04045 {
-        ((((color as f64 / 255.0) / 1.055) + 0.052_132_7).powf(2.4) * 255.0) as u8
+    let color = itof(color);
+    let c = if color > 0.04045 {
+        ((color / 1.055) + 0.052_132_7).powf(2.4)
     } else {
-        ((color as f64 / 255.0) / 12.92 * 255.0) as u8
-    }
+        color / 12.92
+    };
+    ftoi(c)
 }
 
 pub fn gamma_correct(rgb: Vector4<u8>) -> Vector4<u8> {
@@ -79,38 +75,33 @@ pub fn gamma_correct(rgb: Vector4<u8>) -> Vector4<u8> {
 }
 
 pub fn hsv2rgb(hsv: Vector4<f32>) -> Vector4<u8> {
-    let hue = hsv[0] * 180f32 / std::f32::consts::PI;
+    let hue = hsv[0] * 180. / std::f32::consts::PI;
     let saturation = hsv[1];
     let value = hsv[2];
 
     let chroma = value * saturation;
-    let x = chroma * (1f32 - (modulus(hue / 60f32, 2f32) - 1f32).abs());
+    let x = chroma * (1f32 - (modulus(hue / 60., 2f32) - 1f32).abs());
     let match_value = value - chroma;
 
     let (r, g, b) = match hue {
-        hh if hh < 60f32 => (chroma, x, 0f32),
-        hh if hh < 120f32 => (x, chroma, 0f32),
-        hh if hh < 180f32 => (0f32, chroma, x),
-        hh if hh < 240f32 => (0f32, x, chroma),
-        hh if hh < 300f32 => (x, 0f32, chroma),
-        hh if hh < 360f32 => (chroma, 0f32, x),
-        _ => (0f32, 0f32, 0f32),
+        hh if hh < 60. => (chroma, x, 0.),
+        hh if hh < 120. => (x, chroma, 0.),
+        hh if hh < 180. => (0., chroma, x),
+        hh if hh < 240. => (0., x, chroma),
+        hh if hh < 300. => (x, 0., chroma),
+        hh if hh < 360. => (chroma, 0., x),
+        _ => (0., 0., 0.),
     };
 
     Vector4::new(
-        ((r + match_value) * 255f32) as u8,
-        ((g + match_value) * 255f32) as u8,
-        ((b + match_value) * 255f32) as u8,
-        (hsv[3] * 255f32) as u8,
+        ((r + match_value) * 255.) as u8,
+        ((g + match_value) * 255.) as u8,
+        ((b + match_value) * 255.) as u8,
+        (hsv[3] * 255.) as u8,
     )
 }
 
 pub fn hsv_distance(a: &Vector4<f32>, b: &Vector4<f32>) -> f32 {
-    // (a.x - b.x).powf(2.0) * 8./21.
-    // + (a.y - b.y).powf(2.0) * 5./21.
-    // + (a.z - b.z).powf(2.0) * 4./21.
-    // + (a.w - b.w).powf(2.0) * 4./21.
-
     (a.x.sin() * a.y - b.x.sin() * b.y).powf(2.0)
         + (a.x.cos() * a.y - b.x.cos() * b.y).powf(2.0)
         + (a.z - b.z).powf(2.0)
@@ -118,30 +109,26 @@ pub fn hsv_distance(a: &Vector4<f32>, b: &Vector4<f32>) -> f32 {
 }
 
 pub fn hsv_average(colors: &[Vector4<u8>]) -> Vector4<f32> {
-    let n = colors.len() as f32;
-    let mut h_avg = 0f32;
-    let mut s_avg = 0f32;
-    let mut v_avg = 0f32;
-    let mut a_avg = 0f32;
-
+    let (mut h_sum, mut s_sum, mut v_sum, mut a_sum) = (0., 0., 0., 0.);
     for c in colors {
         let color = rgb2hsv(*c);
-        h_avg += color.x;
-        s_avg += color.y;
-        v_avg += color.z;
-        a_avg += color.w;
+        h_sum += color.x;
+        s_sum += color.y;
+        v_sum += color.z;
+        a_sum += color.w;
     }
 
-    Vector4::<f32>::new(h_avg / n, s_avg / n, v_avg / n, a_avg / n)
+    let n = colors.len() as f32;
+    Vector4::<f32>::new(h_sum / n, s_sum / n, v_sum / n, a_sum / n)
 }
 
 pub fn convert_colorset_to_hsv(colorset: &[brickadia::save::Color]) -> Vec<Vector4<f32>> {
-    let mut new = Vec::<Vector4<f32>>::with_capacity(colorset.len());
+    let mut converted_colorset = Vec::<Vector4<f32>>::with_capacity(colorset.len());
     for c in colorset {
-        new.push(rgb2hsv(Vector4::new(c.r, c.g, c.b, c.a)));
+        converted_colorset.push(rgb2hsv(Vector4::new(c.r, c.g, c.b, c.a)));
     }
 
-    new
+    converted_colorset
 }
 
 pub fn match_hsv_to_colorset(colorset: &[Vector4<f32>], color: &Vector4<f32>) -> usize {

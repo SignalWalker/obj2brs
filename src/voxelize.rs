@@ -41,12 +41,8 @@ pub fn voxelize(
             p[v + 2] *= scale;
 
             for m in 0..3 {
-                if min[m] > p[v + m] {
-                    min[m] = p[v + m]
-                };
-                if max[m] < p[v + m] {
-                    max[m] = p[v + m]
-                };
+                min[m] = min[m].min(p[v + m]);
+                max[m] = max[m].max(p[v + m]);
             }
         }
     }
@@ -69,7 +65,6 @@ pub fn voxelize(
     let mask = 1 << octree.size;
 
     // Voxelize
-
     let mut triangles = Vec::<Triangle>::new();
     for m in models.iter() {
         let mesh = &m.mesh;

@@ -12,12 +12,15 @@ pub fn simplify_lossy(
     match_to_colorset: bool,
 ) {
     let colorset = convert_colorset_to_hsv(&save_data.header2.colors);
+    let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
+        (1, 1, 1)
+    } else {
+        (5, 5, 2)
+    };
 
     loop {
         let mut colors = Vec::<Vector4<u8>>::new();
-        let x;
-        let y;
-        let z;
+        let (x, y, z);
         {
             let (location, voxel) = octree.get_any_mut_or_create();
 
@@ -121,25 +124,11 @@ pub fn simplify_lossy(
         let height = yp - y;
         let depth = zp - z;
 
-        let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
-            (1, 1, 1)
-        } else {
-            (5, 5, 2)
-        };
-
         save_data.bricks.push(brs::Brick {
             asset_name_index: if bricktype == BrickType::Microbricks { 0 } else { 1 },
             // Coordinates are rotated
-            size: brs::Size::Procedural(
-                (scales.0 * width) as u32, 
-                (scales.1 * depth) as u32, 
-                (scales.2 * height) as u32
-            ),
-            position: (
-                (scales.0 * width + 2 * scales.0 * x) as i32,
-                (scales.1 * depth + 2 * scales.1 * z) as i32,
-                (scales.2 * height + 2 * scales.2 * y) as i32,
-            ),
+            size: scaled_size(scales, (width, depth, height)),
+            position: scaled_pos(scales, (width, depth, height), (x, z, y)),
             color,
             ..Default::default()
         });
@@ -156,6 +145,12 @@ pub fn simplify_lossless(
     let len = d + 1;
 
     let colorset = convert_colorset_to_hsv(&save_data.header2.colors);
+
+    let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
+        (1, 1, 1)
+    } else {
+        (5, 5, 2)
+    };
 
     loop {
         let matched_color;
@@ -275,12 +270,6 @@ pub fn simplify_lossless(
         let height = yp - y;
         let depth = zp - z;
 
-        let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
-            (1, 1, 1)
-        } else {
-            (5, 5, 2)
-        };
-
         let color = if match_to_colorset {
             brs::BrickColor::Index(matched_color as u32)
         } else {
@@ -290,19 +279,27 @@ pub fn simplify_lossless(
         save_data.bricks.push(brs::Brick {
             asset_name_index: if bricktype == BrickType::Microbricks { 0 } else { 1 },
             // Coordinates are rotated
-            size: brs::Size::Procedural(
-                (scales.0 * width) as u32,
-                (scales.1 * depth) as u32,
-                (scales.2 * height) as u32,
-            ),
-            position: (
-                (scales.0 * width + 2 * scales.0 * x) as i32,
-                (scales.1 * depth + 2 * scales.1 * z) as i32,
-                (scales.2 * height + 2 * scales.2 * y) as i32,
-            ),
+            size: scaled_size(scales, (width, depth, height)),
+            position: scaled_pos(scales, (width, depth, height), (x, z, y)),
             color,
             owner_index: 1,
             ..Default::default()
         });
     }
+}
+
+fn scaled_size(scale: (isize, isize, isize), size: (isize, isize, isize)) -> brs::Size {
+    brs::Size::Procedural(
+        (scale.0 * size.0) as u32,
+        (scale.1 * size.1) as u32,
+        (scale.2 * size.2) as u32,
+    )
+}
+
+fn scaled_pos(scale: (isize, isize, isize), size: (isize, isize, isize), pos: (isize, isize, isize)) -> (i32, i32, i32) {
+    (
+        (scale.0 * size.0 + 2 * scale.0 * pos.0) as i32,
+        (scale.1 * size.1 + 2 * scale.1 * pos.1) as i32,
+        (scale.2 * size.2 + 2 * scale.2 * pos.2) as i32,
+    )
 }
