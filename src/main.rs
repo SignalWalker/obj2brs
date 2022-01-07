@@ -5,6 +5,7 @@ mod icon;
 mod intersect;
 mod octree;
 mod palette;
+mod rampify;
 mod simplify;
 mod voxelize;
 
@@ -23,7 +24,7 @@ use std::{
 use voxelize::voxelize;
 
 const WINDOW_WIDTH: f32 = 600.;
-const WINDOW_HEIGHT: f32 = 380.;
+const WINDOW_HEIGHT: f32 = 420.;
 
 const OBJ_ICON: &[u8; 10987] = include_bytes!("../res/obj_icon.png");
 
@@ -36,6 +37,7 @@ struct Obj2Brs {
     save_owner_id: String,
     save_owner_name: String,
     raise: bool,
+    rampify: bool,
     save_name: String,
     scale: f32,
     simplify: bool,
@@ -57,15 +59,16 @@ impl Default for Obj2Brs {
             save_owner_id: "d66c4ad5-59fc-4a9b-80b8-08dedc25bff9".into(),
             save_owner_name: "obj2brs".into(),
             raise: true,
+            rampify: false,
             save_name: "test".into(),
             scale: 1.0,
-            simplify: true,
+            simplify: false,
         }
     }
 }
 
 impl App for Obj2Brs {
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut eframe::epi::Frame<'_>) {
+    fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
         let input_file_valid = Path::new(&self.input_file_path).exists();
         let output_dir_valid = Path::new(&self.output_directory).is_dir();
         let uuid_valid = Uuid::parse_str(&self.save_owner_id).is_ok();
@@ -147,9 +150,10 @@ impl Obj2Brs {
     }
 
     fn options(&mut self, ui: &mut Ui, uuid_valid: bool) {
+        
         ui.label("Lossy Conversion")
             .on_hover_text("Whether or not to merge similar bricks to create a less detailed model");
-        ui.add(Checkbox::new(&mut self.simplify, "Simplify (reduces brickcount)"));
+        ui.add_enabled(!self.rampify, Checkbox::new(&mut self.simplify, "Simplify (reduces brickcount)"));
         ui.end_row();
 
         ui.label("Raise Underground")
@@ -159,7 +163,12 @@ impl Obj2Brs {
 
         ui.label("Match to Colorset")
             .on_hover_text("Modify the color of the model to match the default color palette in Brickadia");
-        ui.add(Checkbox::new(&mut self.match_brickadia_colorset, "Use Default Palette"));
+        ui.add_enabled(!self.rampify, Checkbox::new(&mut self.match_brickadia_colorset, "Use Default Palette"));
+        ui.end_row();
+
+        ui.label("Rampify")
+            .on_hover_text("Creates a Lego-World like rampification of the model, uses default colorset");
+        ui.add(Checkbox::new(&mut self.rampify, "Run the result through Wrapperup's plate-rampifier"));
         ui.end_row();
 
         ui.label("Scale")
@@ -187,7 +196,7 @@ impl Obj2Brs {
         ui.end_row();
     }
 
-    fn do_conversion(&self) {
+    fn do_conversion(&mut self) {
         println!("{:?}", self);
         let mut octree = match generate_octree(self) {
             Ok(tree) => tree,
@@ -201,7 +210,7 @@ impl Obj2Brs {
 
         write_brs_data(
             &mut octree,
-            &self,
+            self,
         );
     }
 }
@@ -273,8 +282,17 @@ fn generate_octree(opt: &Obj2Brs) -> Result<octree::VoxelTree<Vector4<u8>>, Stri
 
 fn write_brs_data(
     octree: &mut octree::VoxelTree<Vector4<u8>>,
-    opts: &Obj2Brs,
+    opts: &mut Obj2Brs,
 ) {
+    let mut max_merge = 200;
+
+    if opts.rampify {
+        opts.simplify = false;
+        opts.match_brickadia_colorset = true;
+        opts.bricktype = BrickType::Default;
+        max_merge = 1;
+    }
+
     let owner = brs::save::User {
         name: opts.save_owner_name.clone(),
         id: opts.save_owner_id.parse().unwrap(),
@@ -287,7 +305,13 @@ fn write_brs_data(
             ..Default::default()
         },
         header2: brs::save::Header2 {
-            brick_assets: vec!["PB_DefaultMicroBrick".into(), "PB_DefaultBrick".into()],
+            brick_assets: 
+                vec![
+                    "PB_DefaultMicroBrick".into(), 
+                    "PB_DefaultBrick".into(),
+                    "PB_DefaultRamp".into(),
+                    "PB_DefaultWedge".into(),
+                ],
             brick_owners: vec![brs::save::BrickOwner::from_user_bricks(owner.clone(), 1)],
             colors: palette::DEFAULT_PALETTE.to_vec(),
             ..Default::default()
@@ -297,9 +321,9 @@ fn write_brs_data(
 
     println!("Simplifying...");
     if opts.simplify {
-        simplify_lossy(octree, &mut write_data, opts.bricktype, opts.match_brickadia_colorset);
+        simplify_lossy(octree, &mut write_data, opts.bricktype, opts.match_brickadia_colorset, max_merge);
     } else {
-        simplify_lossless(octree, &mut write_data, opts.bricktype, opts.match_brickadia_colorset);
+        simplify_lossless(octree, &mut write_data, opts.bricktype, opts.match_brickadia_colorset, max_merge);
     }
 
     if opts.raise {
@@ -319,6 +343,10 @@ fn write_brs_data(
         for brick in &mut write_data.bricks {
             brick.position.2 -= min_z;
         }
+    }
+
+    if opts.rampify {
+        rampify::rampify(&mut write_data);
     }
 
     // Write file

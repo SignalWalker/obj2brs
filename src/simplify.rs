@@ -10,6 +10,7 @@ pub fn simplify_lossy(
     save_data: &mut brs::SaveData,
     bricktype: BrickType,
     match_to_colorset: bool,
+    max_merge: isize,
 ) {
     let colorset = convert_colorset_to_hsv(&save_data.header2.colors);
     let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
@@ -43,7 +44,7 @@ pub fn simplify_lossy(
         // Expand z direction first due to octree ordering followed by y and x
         // Ensures blocks are simplified in the pattern of Morton coding
         // Saves us having to check in the negative directions
-        while zp - z < 200 {
+        while zp - z < max_merge {
             let voxel = octree.get_mut_or_create(Vector3::new(x, y, zp));
             match voxel {
                 TreeBody::Leaf(leaf_color) => {
@@ -54,7 +55,7 @@ pub fn simplify_lossy(
             }
         }
 
-        while yp - y < 200 {
+        while yp - y < max_merge {
             let mut pass = true;
             for sz in z..zp {
                 let voxel = octree.get_mut_or_create(Vector3::new(x, yp, sz));
@@ -72,7 +73,7 @@ pub fn simplify_lossy(
             yp += 1;
         }
 
-        while xp - x < 200 {
+        while xp - x < max_merge {
             let mut pass = true;
             for sy in y..yp {
                 for sz in z..zp {
@@ -140,6 +141,7 @@ pub fn simplify_lossless(
     save_data: &mut brs::SaveData,
     bricktype: BrickType,
     match_to_colorset: bool,
+    max_merge: isize,
 ) {
     let d: isize = 1 << octree.size;
     let len = d + 1;
@@ -167,8 +169,8 @@ pub fn simplify_lossless(
 
             match voxel {
                 TreeBody::Leaf(leaf_color) => {
-                    matched_color = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
                     let final_color = gamma_correct(*leaf_color);
+                    matched_color = match_hsv_to_colorset(&colorset, &rgb2hsv(final_color));
                     unmatched_color = brs::BrickColor::Unique(brs::Color {
                         r: final_color[0],
                         g: final_color[1],
@@ -186,11 +188,12 @@ pub fn simplify_lossless(
 
         // Expand z direction first due to octree ordering followed by y
         // Ensures blocks are simplified in the pattern of Morton coding
-        while zp < len && (zp - z) < 200 {
+        while zp < len && (zp - z) < max_merge {
             let voxel = octree.get_mut_or_create(Vector3::new(x, y, zp));
             match voxel {
                 TreeBody::Leaf(leaf_color) => {
-                    let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
+                    let final_color = gamma_correct(*leaf_color);
+                    let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(final_color));
                     if color_temp != matched_color {
                         break;
                     }
@@ -200,13 +203,14 @@ pub fn simplify_lossless(
             }
         }
 
-        while yp < len && (yp - y) < 200 {
+        while yp < len && (yp - y) < max_merge {
             let mut pass = true;
             for sz in z..zp {
                 let voxel = octree.get_mut_or_create(Vector3::new(x, yp, sz));
                 match voxel {
                     TreeBody::Leaf(leaf_color) => {
-                        let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
+                        let final_color = gamma_correct(*leaf_color);
+                        let color_temp = match_hsv_to_colorset(&colorset, &rgb2hsv(final_color));
                         if color_temp != matched_color {
                             pass = false;
                             break;
@@ -224,15 +228,16 @@ pub fn simplify_lossless(
             yp += 1;
         }
 
-        while xp < len && (xp - x) < 200 {
+        while xp < len && (xp - x) < max_merge {
             let mut pass = true;
             for sy in y..yp {
                 for sz in z..zp {
                     let voxel = octree.get_mut_or_create(Vector3::new(xp, sy, sz));
                     match voxel {
                         TreeBody::Leaf(leaf_color) => {
+                            let final_color = gamma_correct(*leaf_color);
                             let color_temp =
-                                match_hsv_to_colorset(&colorset, &rgb2hsv(*leaf_color));
+                                match_hsv_to_colorset(&colorset, &rgb2hsv(final_color));
                             if color_temp != matched_color {
                                 pass = false;
                                 break;
