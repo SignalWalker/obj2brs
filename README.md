@@ -1,6 +1,6 @@
 # obj2brs
 
-a5 adaptation of [textured-voxelizer](https://github.com/CheezBarger/textured-voxelizer) by French Fries
+a5 adaptation of [textured-voxelizer](https://github.com/CheezBarger/textured-voxelizer) by Suficio
 
 ![Voxelized plane](banner.png)
 
