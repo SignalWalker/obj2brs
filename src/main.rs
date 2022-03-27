@@ -20,19 +20,21 @@ use uuid::Uuid;
 use std::{
     env,
     fs::File,
-    path::Path};
+    path::Path, ops::RangeInclusive};
 use voxelize::voxelize;
 
 const WINDOW_WIDTH: f32 = 600.;
-const WINDOW_HEIGHT: f32 = 420.;
+const WINDOW_HEIGHT: f32 = 480.;
 
 const OBJ_ICON: &[u8; 10987] = include_bytes!("../res/obj_icon.png");
 
 #[derive(Debug)]
-struct Obj2Brs {
-    bricktype: BrickType,
+pub struct Obj2Brs {
+    pub bricktype: BrickType,
     input_file_path: String,
-    match_brickadia_colorset: bool,
+    pub match_brickadia_colorset: bool,
+    material: Material,
+    material_intensity: u32,
     output_directory: String,
     save_owner_id: String,
     save_owner_name: String,
@@ -46,7 +48,18 @@ struct Obj2Brs {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BrickType {
     Microbricks,
-    Default
+    Default,
+    Tiles
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Material {
+    Plastic,
+    Glass,
+    Glow,
+    Metallic,
+    Hologram,
+    Ghost,
 }
 
 impl Default for Obj2Brs {
@@ -55,6 +68,8 @@ impl Default for Obj2Brs {
             bricktype: BrickType::Microbricks,
             input_file_path: "test.obj".into(),
             match_brickadia_colorset: false,
+            material: Material::Plastic,
+            material_intensity: 5,
             output_directory: "builds".into(),
             save_owner_id: "d66c4ad5-59fc-4a9b-80b8-08dedc25bff9".into(),
             save_owner_name: "obj2brs".into(),
@@ -183,7 +198,25 @@ impl Obj2Brs {
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut self.bricktype, BrickType::Microbricks, "Microbricks");
                 ui.selectable_value(&mut self.bricktype, BrickType::Default, "Default");
+                ui.selectable_value(&mut self.bricktype, BrickType::Tiles, "Tiles");
             });
+        ui.end_row();
+
+        ui.label("Material");
+        ComboBox::from_label("\n")
+            .selected_text(format!("{:?}", &mut self.material))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut self.material, Material::Plastic, "Plastic");
+                ui.selectable_value(&mut self.material, Material::Glass, "Glass");
+                ui.selectable_value(&mut self.material, Material::Glow, "Glow");
+                ui.selectable_value(&mut self.material, Material::Metallic, "Metallic");
+                ui.selectable_value(&mut self.material, Material::Hologram, "Hologram");
+                ui.selectable_value(&mut self.material, Material::Ghost, "Ghost");
+            });
+        ui.end_row();
+
+        ui.label("Material Intensity");
+        ui.add(Slider::new(&mut self.material_intensity, RangeInclusive::new(0, 10)));
         ui.end_row();
 
         let id_color = bool_color(uuid_valid);
@@ -311,7 +344,16 @@ fn write_brs_data(
                     "PB_DefaultBrick".into(),
                     "PB_DefaultRamp".into(),
                     "PB_DefaultWedge".into(),
+                    "PB_DefaultTile".into(),
                 ],
+            materials: match opts.material {
+                Material::Plastic => vec!["BMC_Plastic".into()],
+                Material::Glass => vec!["BMC_Glass".into()],
+                Material::Glow => vec!["BMC_Glow".into()],
+                Material::Metallic => vec!["BMC_Metallic".into()],
+                Material::Hologram => vec!["BMC_Hologram".into()],
+                Material::Ghost => vec!["BMC_Ghost".into()],
+            },
             brick_owners: vec![brs::save::BrickOwner::from_user_bricks(owner.clone(), 1)],
             colors: palette::DEFAULT_PALETTE.to_vec(),
             ..Default::default()
@@ -319,11 +361,15 @@ fn write_brs_data(
         ..Default::default()
     };
 
+    if opts.bricktype == BrickType::Tiles {
+        write_data.header2.brick_assets[1] = "PB_DefaultTile".into();
+    }
+
     println!("Simplifying...");
     if opts.simplify {
-        simplify_lossy(octree, &mut write_data, opts.bricktype, opts.match_brickadia_colorset, max_merge);
+        simplify_lossy(octree, &mut write_data, opts, max_merge);
     } else {
-        simplify_lossless(octree, &mut write_data, opts.bricktype, opts.match_brickadia_colorset, max_merge);
+        simplify_lossless(octree, &mut write_data, opts, max_merge);
     }
 
     if opts.raise {

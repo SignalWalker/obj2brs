@@ -62,7 +62,7 @@ pub fn footer(ctx: &CtxRef) {
         ui.vertical_centered(|ui| {
             ui.add_space(10.);
             ui.add(Label::new(RichText::new("obj2brs").monospace()));
-            ui.label("by Smallguy/Kmschr and French Fries/CheezBarger");
+            ui.label("by Smallguy/Kmschr and Suficio");
             let text = format!("{} {}", GITHUB, "GitHub");
             ui.add(Hyperlink::from_label_and_url(text, "https://github.com/kmschr/obj2brs"));
             ui.add_space(10.);

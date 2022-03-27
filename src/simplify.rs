@@ -1,3 +1,4 @@
+use crate::Obj2Brs;
 use crate::color::*;
 use crate::BrickType;
 use crate::octree::{TreeBody, VoxelTree};
@@ -8,12 +9,11 @@ use cgmath::{Vector3, Vector4};
 pub fn simplify_lossy(
     octree: &mut VoxelTree<Vector4<u8>>,
     save_data: &mut brs::SaveData,
-    bricktype: BrickType,
-    match_to_colorset: bool,
+    opts: &Obj2Brs,
     max_merge: isize,
 ) {
     let colorset = convert_colorset_to_hsv(&save_data.header2.colors);
-    let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
+    let scales: (isize, isize, isize) = if opts.bricktype == BrickType::Microbricks {
         (1, 1, 1)
     } else {
         (5, 5, 2)
@@ -109,7 +109,7 @@ pub fn simplify_lossy(
         }
 
         let avg_color = hsv_average(&colors);
-        let color = if match_to_colorset {
+        let color = if opts.match_brickadia_colorset {
             brs::BrickColor::Index(match_hsv_to_colorset(&colorset, &avg_color) as u32)
         } else {
             let rgba = gamma_correct(hsv2rgb(avg_color));
@@ -126,11 +126,12 @@ pub fn simplify_lossy(
         let depth = zp - z;
 
         save_data.bricks.push(brs::Brick {
-            asset_name_index: if bricktype == BrickType::Microbricks { 0 } else { 1 },
+            asset_name_index: if opts.bricktype == BrickType::Microbricks { 0 } else { 1 },
             // Coordinates are rotated
             size: scaled_size(scales, (width, depth, height)),
             position: scaled_pos(scales, (width, depth, height), (x, z, y)),
             color,
+            material_intensity: opts.material_intensity,
             ..Default::default()
         });
     }
@@ -139,8 +140,7 @@ pub fn simplify_lossy(
 pub fn simplify_lossless(
     octree: &mut VoxelTree<Vector4<u8>>,
     save_data: &mut brs::SaveData,
-    bricktype: BrickType,
-    match_to_colorset: bool,
+    opts: &Obj2Brs,
     max_merge: isize,
 ) {
     let d: isize = 1 << octree.size;
@@ -148,7 +148,7 @@ pub fn simplify_lossless(
 
     let colorset = convert_colorset_to_hsv(&save_data.header2.colors);
 
-    let scales: (isize, isize, isize) = if bricktype == BrickType::Microbricks {
+    let scales: (isize, isize, isize) = if opts.bricktype == BrickType::Microbricks {
         (1, 1, 1)
     } else {
         (5, 5, 2)
@@ -275,19 +275,20 @@ pub fn simplify_lossless(
         let height = yp - y;
         let depth = zp - z;
 
-        let color = if match_to_colorset {
+        let color = if opts.match_brickadia_colorset {
             brs::BrickColor::Index(matched_color as u32)
         } else {
             unmatched_color
         };
 
         save_data.bricks.push(brs::Brick {
-            asset_name_index: if bricktype == BrickType::Microbricks { 0 } else { 1 },
+            asset_name_index: if opts.bricktype == BrickType::Microbricks { 0 } else { 1 },
             // Coordinates are rotated
             size: scaled_size(scales, (width, depth, height)),
             position: scaled_pos(scales, (width, depth, height), (x, z, y)),
             color,
             owner_index: 1,
+            material_intensity: opts.material_intensity,
             ..Default::default()
         });
     }
