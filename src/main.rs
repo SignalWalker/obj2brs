@@ -16,6 +16,7 @@ use eframe::{run_native, NativeOptions, epi::App, egui, egui::*};
 use gui::bool_color;
 use simplify::*;
 use uuid::Uuid;
+use rfd::FileDialog;
 use std::{
     env,
     fs::File,
@@ -122,15 +123,15 @@ impl Obj2Brs {
         ui.horizontal(|ui| {
             ui.add(TextEdit::singleline(&mut self.input_file_path).desired_width(400.0).text_color(file_color));
             if gui::file_button(ui) {
-                match nfd2::open_file_dialog(Some("obj"), None).unwrap() {
-                    nfd2::Response::Okay(file_path) => {
-                        self.input_file_path = file_path.to_string_lossy().into_owned();
-                        self.save_name = match file_path.file_stem() {
+                match FileDialog::new().add_filter("OBJ", &["obj"]).pick_file(){
+                    Some(path) => {
+                        self.input_file_path = path.to_string_lossy().into_owned();
+                        self.save_name = match path.file_stem() {
                             Some(s) => s.to_string_lossy().into_owned(),
                             None => self.save_name.clone()
                         };
                     },
-                    _ => ()
+                    None => ()
                 }
             }
         });
@@ -142,17 +143,16 @@ impl Obj2Brs {
         ui.horizontal(|ui| {
             ui.add(TextEdit::singleline(&mut self.output_directory).desired_width(400.0).text_color(dir_color));
             if gui::file_button(ui) {
-                let default_dir = if output_dir_valid {
-                    Some(Path::new(self.output_directory.as_str()))
-                } else {
-                    None
-                };
+                let mut dialog = FileDialog::new();
+                if output_dir_valid {
+                    dialog = dialog.set_directory(Path::new(self.output_directory.as_str()));
+                }
 
-                match nfd2::open_pick_folder(default_dir).unwrap() {
-                    nfd2::Response::Okay(file_path) => {
-                        self.output_directory = file_path.to_string_lossy().into_owned();
+                match dialog.pick_folder() {
+                    Some(path) => {
+                        self.output_directory = path.to_string_lossy().into_owned();
                     },
-                    _ => ()
+                    None => ()
                 }
             }
         });
