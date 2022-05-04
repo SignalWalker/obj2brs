@@ -1,8 +1,9 @@
+use eframe::egui;
 use egui::special_emojis::GITHUB;
 use egui::{
     Button,
     Color32,
-    CtxRef,
+    Context,
     Grid,
     Hyperlink,
     Label,
@@ -57,7 +58,7 @@ pub fn bool_color(b: bool) -> Color32 {
     }
 }
 
-pub fn footer(ctx: &CtxRef) {
+pub fn footer(ctx: &Context) {
     TopBottomPanel::bottom("footer").show(ctx, |ui: &mut Ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(10.);

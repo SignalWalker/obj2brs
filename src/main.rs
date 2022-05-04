@@ -12,8 +12,7 @@ mod voxelize;
 use brickadia as brs;
 use brs::save::Preview;
 use cgmath::Vector4;
-use eframe::{run_native, NativeOptions, epi::App};
-use egui::*;
+use eframe::{run_native, NativeOptions, epi::App, egui, egui::*};
 use gui::bool_color;
 use simplify::*;
 use uuid::Uuid;
@@ -83,7 +82,7 @@ impl Default for Obj2Brs {
 }
 
 impl App for Obj2Brs {
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &eframe::epi::Frame) {
         let input_file_valid = Path::new(&self.input_file_path).exists();
         let output_dir_valid = Path::new(&self.output_directory).is_dir();
         let uuid_valid = Uuid::parse_str(&self.save_owner_id).is_ok();
