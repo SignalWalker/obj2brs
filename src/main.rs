@@ -90,22 +90,22 @@ impl App for Obj2Brs {
         let can_convert = input_file_valid && output_dir_valid && uuid_valid;
 
         CentralPanel::default().show(ctx, |ui: &mut Ui| {
-            gui::add_grid(ui, |ui| { 
-                self.paths(ui, input_file_valid, output_dir_valid) 
+            gui::add_grid(ui, |ui| {
+                self.paths(ui, input_file_valid, output_dir_valid)
             });
             gui::add_horizontal_line(ui);
-            gui::add_grid(ui, |ui| { 
+            gui::add_grid(ui, |ui| {
                 self.options(ui, uuid_valid)
             });
             gui::info_text(ui);
-            
+
             ui.add_space(10.);
             ui.vertical_centered(|ui| {
                 if gui::button(ui, "Voxelize", can_convert) {
                     self.do_conversion()
                 }
             });
-            
+
             gui::footer(ctx);
         });
     }
@@ -165,7 +165,7 @@ impl Obj2Brs {
     }
 
     fn options(&mut self, ui: &mut Ui, uuid_valid: bool) {
-        
+
         ui.label("Lossy Conversion")
             .on_hover_text("Whether or not to merge similar bricks to create a less detailed model");
         ui.add_enabled(!self.rampify, Checkbox::new(&mut self.simplify, "Simplify (reduces brickcount)"));
@@ -193,13 +193,15 @@ impl Obj2Brs {
 
         ui.label("Bricktype")
             .on_hover_text("Which type of bricks will make up the generated save, use default to get a stud texture");
-        ComboBox::from_label("")
-            .selected_text(format!("{:?}", &mut self.bricktype))
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.bricktype, BrickType::Microbricks, "Microbricks");
-                ui.selectable_value(&mut self.bricktype, BrickType::Default, "Default");
-                ui.selectable_value(&mut self.bricktype, BrickType::Tiles, "Tiles");
-            });
+        ui.add_enabled_ui(!self.rampify, |ui| {
+            ComboBox::from_label("")
+                .selected_text(format!("{:?}", &mut self.bricktype))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.bricktype, BrickType::Microbricks, "Microbricks");
+                    ui.selectable_value(&mut self.bricktype, BrickType::Default, "Default");
+                    ui.selectable_value(&mut self.bricktype, BrickType::Tiles, "Tiles");
+                });
+        });
         ui.end_row();
 
         ui.label("Material");
@@ -248,7 +250,7 @@ impl Obj2Brs {
     }
 }
 
-fn generate_octree(opt: &Obj2Brs) -> Result<octree::VoxelTree<Vector4<u8>>, String> {    
+fn generate_octree(opt: &Obj2Brs) -> Result<octree::VoxelTree<Vector4<u8>>, String> {
     let p: &Path = opt.input_file_path.as_ref();
     println!("Loading {:?}", p);
     match File::open(p) {
@@ -338,9 +340,9 @@ fn write_brs_data(
             ..Default::default()
         },
         header2: brs::save::Header2 {
-            brick_assets: 
+            brick_assets:
                 vec![
-                    "PB_DefaultMicroBrick".into(), 
+                    "PB_DefaultMicroBrick".into(),
                     "PB_DefaultBrick".into(),
                     "PB_DefaultRamp".into(),
                     "PB_DefaultWedge".into(),
@@ -404,7 +406,7 @@ fn write_brs_data(
     preview.write_to(&mut preview_bytes, image::ImageOutputFormat::Png).unwrap();
 
     write_data.preview = Preview::PNG(preview_bytes);
-    
+
     let output_file_path = opts.output_directory.clone() + "/" + &opts.save_name + ".brs";
     brs::write::SaveWriter::new(File::create(output_file_path).unwrap(), write_data)
         .write()
