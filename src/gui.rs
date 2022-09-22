@@ -1,16 +1,7 @@
 use eframe::egui;
 use egui::special_emojis::GITHUB;
 use egui::{
-    Button,
-    Color32,
-    Context,
-    Grid,
-    Hyperlink,
-    Label,
-    RichText,
-    Separator,
-    TopBottomPanel,
-    Ui,
+    Button, Color32, Context, Grid, Hyperlink, Label, RichText, Separator, TopBottomPanel, Ui,
 };
 
 const BUTTON_COLOR: Color32 = Color32::from_rgb(15, 98, 254);
@@ -22,9 +13,7 @@ pub fn add_grid(ui: &mut Ui, mut contents: impl FnMut(&mut Ui)) {
         .num_columns(2)
         .spacing([40.0, 4.0])
         .striped(true)
-        .show(ui, |ui| {
-            contents(ui)
-        });
+        .show(ui, |ui| contents(ui));
 }
 
 pub fn add_horizontal_line(ui: &mut Ui) {
@@ -34,7 +23,10 @@ pub fn add_horizontal_line(ui: &mut Ui) {
 pub fn info_text(ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.label("❓ You can find your own Brickadia ID by visiting");
-        ui.add(Hyperlink::from_label_and_url("brickadia.com/account", "https://brickadia.com/account"));
+        ui.add(Hyperlink::from_label_and_url(
+            "brickadia.com/account",
+            "https://brickadia.com/account",
+        ));
         ui.label("and clicking View Profile");
     });
     ui.label("Your ID will be shown in the URL");
@@ -43,7 +35,9 @@ pub fn info_text(ui: &mut Ui) {
 pub fn button(ui: &mut Ui, text: &str, enabled: bool) -> bool {
     let text = RichText::new(text).color(Color32::WHITE);
     let b = Button::new(text).fill(BUTTON_COLOR);
-    ui.add_enabled(enabled, b).on_hover_text("WARNING! WILL OVERWRITE ANY EXISTING BRS").clicked()
+    ui.add_enabled(enabled, b)
+        .on_hover_text("WARNING! WILL OVERWRITE ANY EXISTING BRS")
+        .clicked()
 }
 
 pub fn file_button(ui: &mut Ui) -> bool {
@@ -65,7 +59,10 @@ pub fn footer(ctx: &Context) {
             ui.add(Label::new(RichText::new("obj2brs").monospace()));
             ui.label("by Smallguy/Kmschr and Suficio");
             let text = format!("{} {}", GITHUB, "GitHub");
-            ui.add(Hyperlink::from_label_and_url(text, "https://github.com/kmschr/obj2brs"));
+            ui.add(Hyperlink::from_label_and_url(
+                text,
+                "https://github.com/kmschr/obj2brs",
+            ));
             ui.add_space(10.);
         });
     });

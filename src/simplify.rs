@@ -1,7 +1,7 @@
-use crate::Obj2Brs;
 use crate::color::*;
-use crate::BrickType;
 use crate::octree::{TreeBody, VoxelTree};
+use crate::BrickType;
+use crate::Obj2Brs;
 
 use brickadia::save as brs;
 use cgmath::{Vector3, Vector4};
@@ -126,7 +126,11 @@ pub fn simplify_lossy(
         let depth = zp - z;
 
         save_data.bricks.push(brs::Brick {
-            asset_name_index: if opts.bricktype == BrickType::Microbricks { 0 } else { 1 },
+            asset_name_index: if opts.bricktype == BrickType::Microbricks {
+                0
+            } else {
+                1
+            },
             // Coordinates are rotated
             size: scaled_size(scales, (width, depth, height)),
             position: scaled_pos(scales, (width, depth, height), (x, z, y)),
@@ -282,7 +286,11 @@ pub fn simplify_lossless(
         };
 
         save_data.bricks.push(brs::Brick {
-            asset_name_index: if opts.bricktype == BrickType::Microbricks { 0 } else { 1 },
+            asset_name_index: if opts.bricktype == BrickType::Microbricks {
+                0
+            } else {
+                1
+            },
             // Coordinates are rotated
             size: scaled_size(scales, (width, depth, height)),
             position: scaled_pos(scales, (width, depth, height), (x, z, y)),
@@ -302,7 +310,11 @@ fn scaled_size(scale: (isize, isize, isize), size: (isize, isize, isize)) -> brs
     )
 }
 
-fn scaled_pos(scale: (isize, isize, isize), size: (isize, isize, isize), pos: (isize, isize, isize)) -> (i32, i32, i32) {
+fn scaled_pos(
+    scale: (isize, isize, isize),
+    size: (isize, isize, isize),
+    pos: (isize, isize, isize),
+) -> (i32, i32, i32) {
     (
         (scale.0 * size.0 + 2 * scale.0 * pos.0) as i32,
         (scale.1 * size.1 + 2 * scale.1 * pos.1) as i32,

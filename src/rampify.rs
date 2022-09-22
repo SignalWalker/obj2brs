@@ -1,6 +1,6 @@
-use std::time::Instant;
-use rampifier::{RampifierConfig, Rampifier};
 use brickadia::save::*;
+use rampifier::{Rampifier, RampifierConfig};
+use std::time::Instant;
 
 pub fn rampify(save: &mut SaveData) {
     // Read colors from sample save.
@@ -10,7 +10,7 @@ pub fn rampify(save: &mut SaveData) {
     /////////////////////////////////////////////////////////////
 
     let fix_brick_pos = |brick: &Brick| -> (i32, i32, i32) {
-        let (mut x, mut  y, mut  z) = brick.position;
+        let (mut x, mut y, mut z) = brick.position;
         if let Size::Procedural(w_half, l_half, h_half) = brick.size {
             x -= w_half as i32;
             y -= l_half as i32;
@@ -46,11 +46,7 @@ pub fn rampify(save: &mut SaveData) {
             min_bounds.1 = min_bounds.1.min(pos.1);
             min_bounds.2 = min_bounds.2.min(pos.2);
 
-            let pos = (
-                pos.0 + w + 1,
-                pos.1 + l + 1,
-                pos.2 + h + 1,
-            );
+            let pos = (pos.0 + w + 1, pos.1 + l + 1, pos.2 + h + 1);
 
             max_bounds.0 = max_bounds.0.max(pos.0);
             max_bounds.1 = max_bounds.1.max(pos.1);
@@ -97,25 +93,32 @@ pub fn rampify(save: &mut SaveData) {
         }
     }
 
-    println!(" - Done in {}s\n", now.elapsed().as_millis() as f64 / 1000.0);
+    println!(
+        " - Done in {}s\n",
+        now.elapsed().as_millis() as f64 / 1000.0
+    );
 
+    let box_remove =
+        |g: &mut Vec<Option<u8>>, pos: &(usize, usize, usize), size: &(usize, usize, usize)| {
+            let &(x, y, z) = pos;
+            let &(w, l, h) = size;
 
-    let box_remove = |g: &mut Vec<Option<u8>>, pos: &(usize, usize, usize), size: &(usize, usize, usize)| {
-        let &(x, y, z) = pos;
-        let &(w, l, h) = size;
+            for i in 0..w {
+                for j in 0..l {
+                    for k in 0..h {
+                        let p = (x + i, y + j, z + k);
 
-        for i in 0..w {
-            for j in 0..l {
-                for k in 0..h {
-                    let p = (x + i, y + j, z + k);
-
-                    g[get_index((p.0, p.1, p.2))] = None;
+                        g[get_index((p.0, p.1, p.2))] = None;
+                    }
                 }
             }
-        }
-    };
+        };
 
-    let can_box = |g: &Vec<Option<u8>>, value: u8, pos: &(usize, usize, usize), size: &(usize, usize, usize)| -> bool {
+    let can_box = |g: &Vec<Option<u8>>,
+                   value: u8,
+                   pos: &(usize, usize, usize),
+                   size: &(usize, usize, usize)|
+     -> bool {
         let &(w, l, h) = size;
 
         if pos.0 + w > grid_size.0 {
@@ -142,11 +145,9 @@ pub fn rampify(save: &mut SaveData) {
         return true;
     };
 
-
     /////////////////////////////////////////////////////////////
     //                  PASS 2: GENERATE RAMPS                 //
     /////////////////////////////////////////////////////////////
-    
 
     save.bricks.clear();
 
@@ -162,7 +163,7 @@ pub fn rampify(save: &mut SaveData) {
             ramp_index: 2,
             wedge_index: 3,
             ..RampifierConfig::default()
-        }
+        },
     );
 
     let now = Instant::now();
@@ -178,14 +179,17 @@ pub fn rampify(save: &mut SaveData) {
     save.bricks.append(ramps2);
 
     println!(" - Processed {} voxels", vox_count);
-    println!(" - Generated {} ramps in {}s\n", ramp_count + ramp2_count, now.elapsed().as_millis() as f64 / 1000.0);
+    println!(
+        " - Generated {} ramps in {}s\n",
+        ramp_count + ramp2_count,
+        now.elapsed().as_millis() as f64 / 1000.0
+    );
 
     // Sets the voxels occupied by ramps to empty.
     rampifier.remove_occupied_voxels();
 
     // Move grid back out of the rampifier to do further processing.
     let mut grid = rampifier.move_grid();
-
 
     /////////////////////////////////////////////////////////////
     //         PASS 3: GENERATE OPTIMIZED BRICK FILL           //
@@ -231,7 +235,8 @@ pub fn rampify(save: &mut SaveData) {
                                 {
                                     let (x, y, z) = (x as i32 * 10, y as i32 * 10, z as i32 * 4);
 
-                                    brick.position = (x + size.0 as i32, y + size.1 as i32, z + size.2 as i32);
+                                    brick.position =
+                                        (x + size.0 as i32, y + size.1 as i32, z + size.2 as i32);
                                     brick.size = Size::Procedural(size.0, size.1, size.2);
                                 }
 

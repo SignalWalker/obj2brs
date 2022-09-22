@@ -18,8 +18,7 @@ pub fn float_equals(a: f32, b: f32) -> bool {
 }
 
 pub fn rgb2hsv(rgb: Vector4<u8>) -> Vector4<f32> {
-    let (r, g, b, a) = 
-        (itof(rgb[0]), itof(rgb[1]), itof(rgb[2]), itof(rgb[3]));
+    let (r, g, b, a) = (itof(rgb[0]), itof(rgb[1]), itof(rgb[2]), itof(rgb[3]));
 
     // max of rgb is equivalent to V in HSV
     let max = r.max(g).max(b);
@@ -46,11 +45,7 @@ pub fn rgb2hsv(rgb: Vector4<u8>) -> Vector4<f32> {
         hue += 2. * std::f32::consts::PI
     }
 
-    let saturation = if float_equals(max, 0.) {
-        0.
-    } else {
-        mid / max
-    };
+    let saturation = if float_equals(max, 0.) { 0. } else { mid / max };
 
     Vector4::<f32>::new(hue, saturation, max, a)
 }
