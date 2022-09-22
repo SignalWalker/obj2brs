@@ -12,7 +12,7 @@ mod voxelize;
 use brickadia as brs;
 use brs::save::Preview;
 use cgmath::Vector4;
-use eframe::{run_native, NativeOptions, epi::App, egui, egui::*};
+use eframe::{run_native, NativeOptions, App, egui, egui::*};
 use gui::bool_color;
 use simplify::*;
 use uuid::Uuid;
@@ -83,7 +83,7 @@ impl Default for Obj2Brs {
 }
 
 impl App for Obj2Brs {
-    fn update(&mut self, ctx: &egui::Context, _frame: &eframe::epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let input_file_valid = Path::new(&self.input_file_path).exists();
         let output_dir_valid = Path::new(&self.output_directory).is_dir();
         let uuid_valid = Uuid::parse_str(&self.save_owner_id).is_ok();
@@ -108,10 +108,6 @@ impl App for Obj2Brs {
 
             gui::footer(ctx);
         });
-    }
-
-    fn name(&self) -> &str {
-        "obj2brs"
     }
 }
 
@@ -258,9 +254,9 @@ fn generate_octree(opt: &Obj2Brs) -> Result<octree::VoxelTree<Vector4<u8>>, Stri
     }
 
     println!("Importing model...");
-    let (mut models, materials) = match tobj::load_obj(&opt.input_file_path, true) {
-        Err(e) => return Err(format!("Error encountered when loading obj file: {}", e.to_string())),
-        Ok(f) => f,
+    let (mut models, materials) = match tobj::load_obj(&opt.input_file_path, &tobj::LoadOptions { triangulate: true, ..Default::default() }) {
+        Err(e) | Ok((_, Err(e))) => return Err(format!("Error encountered when loading obj file: {}", e.to_string())),
+        Ok((models, Ok(materials))) => (models, materials),
     };
 
     println!("Loading materials...");
@@ -402,7 +398,7 @@ fn write_brs_data(
     let preview = image::load_from_memory_with_format(OBJ_ICON, image::ImageFormat::Png).unwrap();
 
     let mut preview_bytes = Vec::new();
-    preview.write_to(&mut preview_bytes, image::ImageOutputFormat::Png).unwrap();
+    preview.write_to(&mut std::io::Cursor::new(&mut preview_bytes), image::ImageOutputFormat::Png).unwrap();
 
     write_data.preview = Preview::PNG(preview_bytes);
 
@@ -428,12 +424,12 @@ fn main() {
     let win_option = NativeOptions {
         initial_window_size: Some([WINDOW_WIDTH, WINDOW_HEIGHT].into()),
         resizable: false,
-        icon_data: Some(eframe::epi::IconData {
+        icon_data: Some(eframe::IconData {
             rgba: icon::ICON.to_vec(),
             width: 32,
             height: 32,
         }),
         ..Default::default()
     };
-    run_native(Box::new(app), win_option);
+    run_native("obj2brs", win_option, Box::new(|_creation_context| Box::new(app)));
 }

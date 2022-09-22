@@ -9,15 +9,15 @@ edition = "2018"
 include = ["reference.brs"]
 
 [dependencies]
-brickadia = "0.1.14"
-tobj = "2.0"
-cgmath = "0.17"
-image = "0.23"
-uuid = "0.7"
+brickadia = "0.1.26"
+tobj = "3.2"
+cgmath = "0.18"
+image = "0.24"
+uuid = "1.1"
 chrono = "0.4"
-eframe = "0.17"
+eframe = "0.19"
 dirs = "4.0.0"
-rfd = "0.8"
+rfd = "0.10"
 rampifier = { git = "https://github.com/Wrapperup/rampifier" }
 
 [features]
