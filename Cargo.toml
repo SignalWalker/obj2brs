@@ -13,11 +13,19 @@ brickadia = "0.1.26"
 tobj = "3.2"
 cgmath = "0.18"
 image = "0.24"
-uuid = "1.1"
+uuid = "0.8"
 chrono = "0.4"
 eframe = "0.19"
 dirs = "4.0.0"
 rfd = "0.10"
+lazy_static = "1.4"
+thiserror = "1.0"
+rayon = "1.5"
+num_cpus = "1.13"
+time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [ "time", "env-filter", "parking_lot", "local-time", "json" ] }
+clap = { version = "3.2", features = [ "derive", "env" ] }
 rampifier = { git = "https://github.com/Wrapperup/rampifier" }
 
 [features]
