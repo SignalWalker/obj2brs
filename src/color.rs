@@ -1,4 +1,4 @@
-use cgmath::Vector4;
+use nalgebra::Vector4;
 
 pub fn ftoi(v: f32) -> u8 {
     (v * 255.).round() as u8

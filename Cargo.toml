@@ -10,8 +10,9 @@ include = ["reference.brs"]
 
 [dependencies]
 brickadia = "0.1.26"
-tobj = "3.2"
-cgmath = "0.18"
+tobj = { version = "3.2", features = [ "merging", "reordering" ] }
+nalgebra = "0.31"
+parry3d = "0.9"
 image = "0.24"
 uuid = "0.8"
 chrono = "0.4"
@@ -22,6 +23,7 @@ lazy_static = "1.4"
 thiserror = "1.0"
 rayon = "1.5"
 num_cpus = "1.13"
+enumflags2 = "0.7"
 time = { version = "0.3", features = ["formatting", "local-offset", "macros"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = [ "time", "env-filter", "parking_lot", "local-time", "json" ] }

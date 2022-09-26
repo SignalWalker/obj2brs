@@ -3,7 +3,7 @@ use crate::octree::{TreeBody, VoxelTree};
 use crate::BrickType;
 
 use brickadia::save as brs;
-use cgmath::{Vector3, Vector4};
+use nalgebra::{Vector3, Vector4};
 
 pub fn simplify_lossy(
     octree: &mut VoxelTree<Vector4<u8>>,

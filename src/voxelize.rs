@@ -1,13 +1,15 @@
+use std::collections::HashMap;
+
 use crate::barycentric::interpolate_uv;
 use crate::color::*;
 use crate::intersect::intersect;
+use crate::load::{MeshExt, ModelSet, ObjMaterial, ObjRegistry};
 use crate::octree::{Branches, TreeBody, VoxelTree};
 use crate::BrickType;
 
-use tobj;
-
-use cgmath::{Vector2, Vector3, Vector4};
 use image::RgbaImage;
+use nalgebra::{Matrix4, Point3, Projective3, Vector2, Vector3, Vector4};
+use parry3d::bounding_volume::AABB;
 
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -17,116 +19,89 @@ struct Triangle {
     uvs: Option<[Vector2<f32>; 3]>,
 }
 
-pub fn voxelize(
-    models: &mut Vec<tobj::Model>,
-    materials: &[RgbaImage],
-    scale: f32,
-    bricktype: BrickType,
-) -> VoxelTree<Vector4<u8>> {
-    let mut octree = VoxelTree::<Vector4<u8>>::new();
+impl ModelSet {
+    pub fn voxelize(
+        &self,
+        images: &HashMap<String, image::RgbaImage>,
+        transform: &Projective3<f32>,
+    ) -> VoxelTree<Vector4<u8>> {
+        let mut octree = VoxelTree::<Vector4<u8>>::new();
 
-    // Determine model AABB to expand triangle octree to final size
-    // Multiply y-coordinate by 2.5 to take into account plates
-    let yscale = if bricktype == BrickType::Microbricks {
-        1.0
-    } else {
-        2.5
-    };
-
-    let u = &models[0].mesh.positions; // Guess initial
-    let mut min = Vector3::new(u[0] * scale, u[1] * yscale * scale, u[2] * scale);
-    let mut max = min;
-
-    for m in models.iter_mut() {
-        let p = &mut m.mesh.positions;
-        for v in (0..p.len()).step_by(3) {
-            p[v] *= scale;
-            p[v + 1] *= yscale * scale;
-            p[v + 2] *= scale;
-
-            for m in 0..3 {
-                min[m] = min[m].min(p[v + m]);
-                max[m] = max[m].max(p[v + m]);
+        let aabb = AABB::new_invalid();
+        for model in &self.models {
+            let mesh = &model.mesh;
+            let material = mesh.material_id.map(|id| &self.materials[id]);
+            // the material is applied to every triangle in the mesh, so there's no reason to
+            // bother with it if it's invisible
+            if let Some(ObjMaterial::Color(_, _, _, 0.0)) = material {
+                tracing::debug!(
+                    "Skipping mesh with invisible material: {}.{}",
+                    &model.name,
+                    mesh.material_id.as_ref().unwrap()
+                );
+                continue;
+            }
+            // prepare & transform vertices
+            let verts = vec![];
+            for v in mesh.vertices() {
+                let pos = &mut v[0..3];
+                let p = transform.transform_point(&Point3::from_slice(pos));
+                pos[0] = p.x;
+                pos[1] = p.y;
+                pos[2] = p.z;
+                // expand aabb
+                aabb.take_point(p);
+                verts.push(v);
+            }
+            // voxelize each triangle
+            for tri in mesh.triangles() {
+                let a = verts[tri[0] as usize];
+                let b = verts[tri[1] as usize];
+                let c = verts[tri[2] as usize];
             }
         }
-    }
 
-    let floor_min = Vector3::<isize>::new(
-        min[0].floor() as isize - 1,
-        min[1].floor() as isize - 1,
-        min[2].floor() as isize - 1,
-    );
-    let ceil_max = Vector3::<isize>::new(
-        max[0].ceil() as isize + 1,
-        max[1].ceil() as isize + 1,
-        max[2].ceil() as isize + 1,
-    );
+        let floor_min = Vector3::<isize>::new(
+            min[0].floor() as isize - 1,
+            min[1].floor() as isize - 1,
+            min[2].floor() as isize - 1,
+        );
+        let ceil_max = Vector3::<isize>::new(
+            max[0].ceil() as isize + 1,
+            max[1].ceil() as isize + 1,
+            max[2].ceil() as isize + 1,
+        );
 
-    while !octree.contains_bounds(floor_min) || !octree.contains_bounds(ceil_max) {
-        octree.size += 1;
-    }
-
-    let mask = 1 << octree.size;
-
-    // Voxelize
-    let mut triangles = Vec::<Triangle>::new();
-    for m in models.iter() {
-        let mesh = &m.mesh;
-        let material = mesh.material_id;
-
-        for n in (0..mesh.indices.len()).step_by(3) {
-            let mut m = (3 * mesh.indices[n]) as usize;
-            let v0 = Vector3::new(
-                mesh.positions[m],
-                mesh.positions[m + 1],
-                mesh.positions[m + 2],
-            );
-            m = (3 * mesh.indices[n + 1]) as usize;
-            let v1 = Vector3::new(
-                mesh.positions[m],
-                mesh.positions[m + 1],
-                mesh.positions[m + 2],
-            );
-            m = (3 * mesh.indices[n + 2]) as usize;
-            let v2 = Vector3::new(
-                mesh.positions[m],
-                mesh.positions[m + 1],
-                mesh.positions[m + 2],
-            );
-
-            let uvs = if !mesh.texcoords.is_empty() {
-                m = (2 * mesh.indices[n]) as usize;
-                let uv0 = Vector2::new(mesh.texcoords[m], mesh.texcoords[m + 1]);
-                m = (2 * mesh.indices[n + 1]) as usize;
-                let uv1 = Vector2::new(mesh.texcoords[m], mesh.texcoords[m + 1]);
-                m = (2 * mesh.indices[n + 2]) as usize;
-                let uv2 = Vector2::new(mesh.texcoords[m], mesh.texcoords[m + 1]);
-
-                Some([uv0, uv1, uv2])
-            } else {
-                None
-            };
-
-            let triangle = Triangle {
-                material_id: material,
-                vertices: [v0, v1, v2],
-                uvs,
-            };
-
-            triangles.push(triangle);
+        while !octree.contains_bounds(floor_min) || !octree.contains_bounds(ceil_max) {
+            octree.size += 1;
         }
+
+        let mask = 1 << octree.size; // mask = 1ᵗ, where `t` is the size of the octree
+
+        recursive_voxelize(
+            &mut octree.contents,
+            mask,
+            triangles,
+            images,
+            &self.materials,
+        );
+
+        octree
     }
+}
 
-    recursive_voxelize(&mut octree.contents, mask, triangles, materials);
-
-    octree
+impl ObjRegistry {
+    pub fn voxelize(&self, scale: f32, bricktype: BrickType) -> VoxelTree<Vector4<u8>> {
+        todo!()
+    }
 }
 
 fn recursive_voxelize<'a>(
     branches: &'a mut Branches<Vector4<u8>>,
     mask: isize,
     vector: Vec<Triangle>,
-    materials: &[RgbaImage],
+    images: &HashMap<String, RgbaImage>,
+    materials: &[ObjMaterial],
 ) {
     let m = mask >> 1;
     let half_box = (2 * m + ((m == 0) as isize)) as f32 / 2.;
@@ -156,13 +131,26 @@ fn recursive_voxelize<'a>(
                             if let Some(id) = triangle.material_id {
                                 let uv =
                                     interpolate_uv(&triangle.vertices, &triangle.uvs, intersection);
-                                let m = &materials[id];
+                                let mat = &materials[id];
 
-                                let u = ((uv[0] - uv[0].floor()) * (m.width() - 1) as f32) as u32;
-                                let v =
-                                    ((1. - uv[1] + uv[1].floor()) * (m.height() - 1) as f32) as u32;
+                                let c = match mat {
+                                    ObjMaterial::Color(r, g, b, a) => [
+                                        (255.0 * r) as u8,
+                                        (255.0 * g) as u8,
+                                        (255.0 * b) as u8,
+                                        (255.0 * a) as u8,
+                                    ],
+                                    ObjMaterial::ImageKey(img) => {
+                                        let img = images[img];
+                                        let u = ((uv[0] - uv[0].floor()) * (img.width() - 1) as f32)
+                                            as u32;
+                                        let v = ((1. - uv[1] + uv[1].floor())
+                                            * (img.height() - 1) as f32)
+                                            as u32;
+                                        img.get_pixel(u, v).0
+                                    }
+                                };
 
-                                let c = *m.get_pixel(u, v);
                                 if c[3] == 0 {
                                     continue;
                                 } // If alpha is zero, skeedaddle
@@ -188,7 +176,7 @@ fn recursive_voxelize<'a>(
                 // Not yet at root level, keep on recursing...
                 *branch = TreeBody::Branch(Box::new(TreeBody::empty()));
                 if let TreeBody::Branch(b) = branch {
-                    recursive_voxelize(b, m, triangles, materials);
+                    recursive_voxelize(b, m, triangles, images, materials);
                 }
             } else {
                 *branch = TreeBody::Leaf(hsv2rgb(hsv_average(&colors)));

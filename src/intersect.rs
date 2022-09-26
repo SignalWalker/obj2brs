@@ -1,4 +1,4 @@
-use cgmath::{InnerSpace, Vector3};
+use nalgebra::Vector3;
 
 fn find_min_max(f0: f32, f1: f32, f2: f32, min: &mut f32, max: &mut f32) {
     *min = f0;
@@ -182,10 +182,10 @@ fn plane_box_overlap(half_box: f32, normal: Vector3<f32>, vert: Vector3<f32>) ->
         }
     }
 
-    if normal.dot(vmin) > 0.0 {
+    if normal.dot(&vmin) > 0.0 {
         return false;
     };
-    if normal.dot(vmax) >= 0.0 {
+    if normal.dot(&vmax) >= 0.0 {
         return true;
     };
 
@@ -257,11 +257,11 @@ pub fn intersect(
         return None;
     };
 
-    let normal = e0.cross(e1);
+    let normal = e0.cross(&e1);
     if !plane_box_overlap(half_box, normal, v0) {
         return None;
     };
 
     // Orthogonal projection to determine UV coordinates
-    Some((v0.dot(normal) * normal) / normal.dot(normal) + center)
+    Some((v0.dot(&normal) * normal) / normal.dot(&normal) + center)
 }

@@ -2,8 +2,10 @@ mod barycentric;
 mod cli;
 mod color;
 // mod gui;
+mod geom;
 mod icon;
 mod intersect;
+mod load;
 mod octree;
 mod palette;
 mod rampify;
@@ -12,10 +14,9 @@ mod voxelize;
 
 use brickadia as brs;
 use brs::save::Preview;
-use cgmath::Vector4;
 use clap::{CommandFactory, Parser};
 use eframe::{egui, egui::*, run_native, App, NativeOptions};
-use rayon::prelude::{IntoParallelRefIterator, IntoParallelIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 // use gui::bool_color;
 use rfd::FileDialog;
 use simplify::*;
@@ -34,6 +35,16 @@ pub enum BrickType {
     Microbricks,
     Default,
     Tiles,
+}
+
+impl BrickType {
+    pub fn scale(&self) -> nalgebra::Scale3<f32> {
+        use nalgebra::Scale3;
+        match self {
+            Self::Microbricks => Scale3::identity(),
+            _ => Scale3::new(1.0, 2.5, 1.0),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, clap::ValueEnum)]
@@ -99,7 +110,9 @@ fn load_model(path: &Path) -> Result<(Vec<tobj::Model>, Vec<image::RgbaImage>), 
                 image_path
             );
 
-            let image = image::open(&image_path).map_err(|e| ConversionError::LoadImg(material.diffuse_texture, image_path, e))?.into_rgba8();
+            let image = image::open(&image_path)
+                .map_err(|e| ConversionError::LoadImg(material.diffuse_texture, image_path, e))?
+                .into_rgba8();
             material_images.push(image);
         }
     }
@@ -333,7 +346,10 @@ fn write_objs_to_brs(
 fn main() {
     let mut args = cli::Cli::parse();
     init_tracing(args.log_format, &args.log_filter);
-    rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(args.threads)
+        .build_global()
+        .unwrap();
 
     if args.gui || args.inputs().is_empty() {
         // gui::Gui::new(
@@ -373,8 +389,10 @@ fn main() {
                     &file_path,
                 ) {
                     Ok(_) => {}
-                    Err(WriteError::Collision) => tracing::error!("{file_path:?} exists; skipping..."),
-                    Err(e) => tracing::error!("{e:?}")
+                    Err(WriteError::Collision) => {
+                        tracing::error!("{file_path:?} exists; skipping...")
+                    }
+                    Err(e) => tracing::error!("{e:?}"),
                 };
             });
         } else {
