@@ -2,7 +2,10 @@
 //! multiples of 4 rather than 8, though)
 
 use parry3d::bounding_volume::AABB;
-use std::{ops::{Deref, DerefMut}, marker::PhantomData};
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -11,7 +14,7 @@ pub enum Error {
     #[error("Child index out of range: {0}")]
     OutOfRange(u8),
     #[error("Attempted to access child of terminal node")]
-    NoChildren
+    NoChildren,
 }
 
 pub struct Octree<T> {
@@ -62,7 +65,7 @@ pub enum ProxyData {
 pub struct View<'tree, Tree: 'tree> {
     tree: Tree,
     target: u32,
-    _lifetime: PhantomData<&'tree ()>
+    _lifetime: PhantomData<&'tree ()>,
 }
 
 impl<'tree, T: 'tree, Tree: Deref<Target = Octree<T>> + 'tree> View<'tree, Tree> {
@@ -70,7 +73,7 @@ impl<'tree, T: 'tree, Tree: Deref<Target = Octree<T>> + 'tree> View<'tree, Tree>
         Self {
             tree,
             target,
-            _lifetime: PhantomData::default()
+            _lifetime: PhantomData::default(),
         }
     }
 
@@ -78,33 +81,47 @@ impl<'tree, T: 'tree, Tree: Deref<Target = Octree<T>> + 'tree> View<'tree, Tree>
         &self.tree.proxies[self.target as usize]
     }
 
-    pub fn parent(&self) -> Result<Self, Error> where Tree: Copy {
+    pub fn parent(&self) -> Result<Self, Error>
+    where
+        Tree: Copy,
+    {
         Ok(Self::new(self.tree, {
-                let pid = self.proxy().parent;
-                if pid == self.target {
-                    return Err(Error::ParentOfRoot);
-                }
-                pid
-            }))
-    }
-
-    pub fn child(&self, index: u8) -> Result<Self, Error> where Tree: Copy {
-        Ok(Self::new(self.tree, match self.proxy().data {
-            ProxyData::Branch(c) => *c.get(index as usize).ok_or(Error::OutOfRange(index))?,
-            _ => return Err(Error::NoChildren)
+            let pid = self.proxy().parent;
+            if pid == self.target {
+                return Err(Error::ParentOfRoot);
+            }
+            pid
         }))
     }
 
-    pub fn children(&self) -> Box<dyn Iterator<Item = Self> + '_> where Tree: Copy {
+    pub fn child(&self, index: u8) -> Result<Self, Error>
+    where
+        Tree: Copy,
+    {
+        Ok(Self::new(
+            self.tree,
+            match self.proxy().data {
+                ProxyData::Branch(c) => *c.get(index as usize).ok_or(Error::OutOfRange(index))?,
+                _ => return Err(Error::NoChildren),
+            },
+        ))
+    }
+
+    pub fn children(&self) -> Box<dyn Iterator<Item = Self> + '_>
+    where
+        Tree: Copy,
+    {
         match self.proxy().data {
-            ProxyData::Branch(c) => Box::new(c.into_iter().map(|target| Self::new(self.tree, target))),
-            _ => Box::new([].into_iter())
+            ProxyData::Branch(c) => {
+                Box::new(c.into_iter().map(|target| Self::new(self.tree, target)))
+            }
+            _ => Box::new([].into_iter()),
         }
     }
     pub fn data(&self) -> Option<&T> {
         match self.proxy().data {
             ProxyData::Leaf(lid) => Some(&self.tree.leaf_data[lid as usize]),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -112,7 +129,9 @@ impl<'tree, T: 'tree, Tree: Deref<Target = Octree<T>> + 'tree> View<'tree, Tree>
 impl<'tree, T: 'tree, Tree: DerefMut<Target = Octree<T>> + 'tree> View<'tree, Tree> {
     pub fn parent_mut(&mut self) -> Result<&mut Self, Error> {
         let pid = self.proxy().parent;
-        if pid == self.target { return Err(Error::ParentOfRoot); }
+        if pid == self.target {
+            return Err(Error::ParentOfRoot);
+        }
         self.target = pid;
         Ok(self)
     }
@@ -120,7 +139,7 @@ impl<'tree, T: 'tree, Tree: DerefMut<Target = Octree<T>> + 'tree> View<'tree, Tr
     pub fn child_mut(&mut self, index: u8) -> Result<&mut Self, Error> {
         self.target = match self.proxy().data {
             ProxyData::Branch(c) => *c.get(index as usize).ok_or(Error::OutOfRange(index))?,
-            _ => return Err(Error::NoChildren)
+            _ => return Err(Error::NoChildren),
         };
         Ok(self)
     }
